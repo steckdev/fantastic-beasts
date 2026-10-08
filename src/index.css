@@ -402,16 +402,41 @@ html, body, #root {
 
 /* Fantastic Beasts Cartographic Live Filters */
 .magical-map-marauder {
-  /* Inverts stark Google Maps white into midnight slate while glowing road veins turn into warm amber/gold leylines */
-  filter: invert(93%) hue-rotate(195deg) brightness(85%) contrast(120%) saturate(145%) !important;
-}
-
-.magical-map-parchment {
-  /* 1920s Antique wizarding parchment / vintage New York map */
-  filter: sepia(75%) hue-rotate(330deg) brightness(88%) contrast(118%) saturate(135%) !important;
+  /* Authentic Hogwarts Marauder's Map: Rich vintage sepia parchment with dark ink streets & trails */
+  filter: sepia(95%) contrast(135%) brightness(88%) saturate(145%) hue-rotate(345deg) !important;
 }
 
 .magical-map-twilight {
-  /* Deep arcane twilight leylines */
-  filter: invert(90%) hue-rotate(225deg) brightness(78%) contrast(125%) saturate(160%) !important;
+  /* Deep Arcane Twilight: Inverted midnight obsidian with glowing neon cyan/amethyst magical leylines */
+  filter: invert(96%) hue-rotate(190deg) brightness(74%) contrast(150%) saturate(220%) !important;
 }
+
+.magical-map-parchment {
+  /* Lumos Daylight: Illuminated parchment survey map with crisp contrast and warm sunlight hue */
+  filter: sepia(25%) brightness(98%) contrast(106%) saturate(112%) !important;
+}
+
+/* Location Pin / Anchored Badge */
+.location-anchored-badge {
+  background: linear-gradient(135deg, rgba(217, 119, 6, 0.95), rgba(180, 83, 9, 0.9));
+  border: 1px solid #fef08a;
+  box-shadow: 0 0 16px rgba(245, 158, 11, 0.6);
+  color: #fff;
+  font-family: var(--font-cinzel);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.location-anchored-badge:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 22px rgba(251, 191, 36, 0.8);
+}
+

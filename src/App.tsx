@@ -21,6 +21,7 @@ import Navigation from './components/Navigation';
 import Toast from './components/Toast';
 import ItemBagModal from './components/ItemBagModal';
 import ApparitionModal, { ApparitionTarget } from './components/ApparitionModal';
+import RaidModal from './components/RaidModal';
 
 // Default initial coordinates (New York City / Woolworth Building MACUSA Headquarters)
 const DEFAULT_LAT = 40.7124;
@@ -36,12 +37,14 @@ export default function App() {
   // Modals
   const [activeEncounter, setActiveEncounter] = useState<Disturbance | null>(null);
   const [activeWaypoint, setActiveWaypoint] = useState<Waypoint | null>(null);
+  const [activeRaid, setActiveRaid] = useState<Waypoint | null>(null);
   const [showHeroSelect, setShowHeroSelect] = useState<boolean>(!gameState.hasChosenHero);
   const [showQuests, setShowQuests] = useState<boolean>(false);
   const [showSettings, setShowSettings] = useState<boolean>(false);
   const [showItemBag, setShowItemBag] = useState<boolean>(false);
   const [apparitionTarget, setApparitionTarget] = useState<ApparitionTarget | null>(null);
   const [isApparating, setIsApparating] = useState<boolean>(false);
+  const [isLocationPinned, setIsLocationPinned] = useState<boolean>(false);
 
   // In-game Toast Notification System (replaces native window.alert)
   const [activeToast, setActiveToast] = useState<ToastNotification | null>(null);
@@ -89,8 +92,10 @@ export default function App() {
       (pos) => {
         const { latitude, longitude } = pos.coords;
         handleMovementDelta(latitude, longitude);
-        setPlayerPos({ lat: latitude, lng: longitude });
-        checkAndSpawnAtLocation(latitude, longitude);
+        if (!isLocationPinned) {
+          setPlayerPos({ lat: latitude, lng: longitude });
+          checkAndSpawnAtLocation(latitude, longitude);
+        }
       },
       (err) => {
         console.warn('Geolocation unavailable or denied, falling back to simulated GPS:', err.message);
@@ -99,7 +104,7 @@ export default function App() {
     );
 
     return () => navigator.geolocation.clearWatch(watchId);
-  }, [gameState.settings?.useVirtualGPS]);
+  }, [gameState.settings?.useVirtualGPS, isLocationPinned]);
 
   // Motion Service Listener for Walking & Pedometer
   useEffect(() => {
@@ -275,6 +280,7 @@ export default function App() {
 
     sounds.playApparition();
     setIsApparating(true);
+    setIsLocationPinned(true); // Snap and lock position in place
     confetti({
       particleCount: 50,
       spread: 75,
@@ -307,11 +313,36 @@ export default function App() {
           }
         }));
       } else if (target.type === 'waypoint' && target.waypoint) {
-        setActiveWaypoint({ ...target.waypoint, inRange: true, distMeters: 0 });
+        if (target.waypoint.type === 'fortress') {
+          setActiveRaid({ ...target.waypoint, inRange: true, distMeters: 0 });
+        } else {
+          setActiveWaypoint({ ...target.waypoint, inRange: true, distMeters: 0 });
+        }
       }
 
-      showToast('⚡ *CRACK!*', `Apparated to ${destName}!`, 'success');
+      showToast('⚡ *CRACK!*', `Apparated to ${destName}! Location pinned.`, 'success');
     }, 450);
+  };
+
+  // Toggle Location Pin lock (anchored apparate position vs resuming live GPS)
+  const handleToggleLocationPin = () => {
+    if (isLocationPinned) {
+      setIsLocationPinned(false);
+      showToast('🧭 Re-centered', 'Map re-synchronized with your live physical location.', 'info');
+      if (navigator.geolocation && !gameState.settings?.useVirtualGPS) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            const { latitude, longitude } = pos.coords;
+            setPlayerPos({ lat: latitude, lng: longitude });
+            checkAndSpawnAtLocation(latitude, longitude, true);
+          },
+          (err) => console.warn('Could not re-sync GPS:', err)
+        );
+      }
+    } else {
+      setIsLocationPinned(true);
+      showToast('📌 Location Pinned', 'Map anchored at current coordinates. Tap pin to resume GPS.', 'info');
+    }
   };
 
   // Periodic disturbance spawner & refresh cycle (checks every 45s)
@@ -403,9 +434,38 @@ export default function App() {
     }));
   };
 
-  // Select Waypoint from Map
+  // Select Waypoint from Map (Inns, Greenhouses, or Fortress Citadel Raids)
   const handleSelectWaypoint = (wp: Waypoint, inRange: boolean, distMeters: number) => {
+    if (wp.type === 'fortress') {
+      if (!inRange) {
+        setApparitionTarget({
+          type: 'waypoint',
+          waypoint: wp,
+          distMeters
+        });
+        return;
+      }
+      setActiveRaid(wp);
+      return;
+    }
     setActiveWaypoint({ ...wp, inRange, distMeters });
+  };
+
+  // Record completed Citadel Raid victory
+  const handleRaidComplete = () => {
+    const today = new Date().toISOString().slice(0, 10);
+    setGameState((prev) => {
+      const countToday = prev.lastRaidDate === today ? (prev.raidsCompletedToday || 0) : 0;
+      return {
+        ...prev,
+        lastRaidDate: today,
+        raidsCompletedToday: countToday + 1,
+        stats: {
+          ...prev.stats,
+          raidsWon: (prev.stats.raidsWon || 0) + 1
+        }
+      };
+    });
   };
 
   // Consume an inventory item
@@ -447,8 +507,7 @@ export default function App() {
 
       const newInventory = {
         ...prev.inventory,
-        knuts: (prev.inventory.knuts || 0) + 30,
-        spell_energy: Math.min(100, (prev.inventory.spell_energy || 0) + 10)
+        knuts: (prev.inventory.knuts || 0) + 30
       };
 
       return {
@@ -828,6 +887,8 @@ export default function App() {
   };
 
   const unreadTasksCount = gameState.quests.filter((q) => q.current >= q.target && !q.claimed).length;
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const raidsCompletedToday = gameState.lastRaidDate === todayStr ? (gameState.raidsCompletedToday || 0) : 0;
 
   return (
     <div style={{ position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden' }}>
@@ -866,6 +927,8 @@ export default function App() {
         mapStyle={gameState.settings?.mapStyle || 'marauder'}
         soundEnabled={gameState.settings?.soundEnabled ?? true}
         onToggleSound={handleToggleSound}
+        isLocationPinned={isLocationPinned}
+        onToggleLocationPin={handleToggleLocationPin}
       />
 
       {/* 2. Top-Level Tab Views */}
@@ -930,6 +993,26 @@ export default function App() {
               distMeters: activeWaypoint.distMeters || 0
             })
           }
+        />
+      )}
+
+      {/* Citadel Ancient Fortress Legendary Raid Modal */}
+      {activeRaid && (
+        <RaidModal
+          waypoint={activeRaid}
+          hero={hero}
+          buddyInstance={buddyInstance}
+          inventory={gameState.inventory}
+          raidsCompletedToday={raidsCompletedToday}
+          onConsumeItem={handleConsumeItem}
+          onCaptureSuccess={handleCaptureSuccess}
+          onRaidComplete={handleRaidComplete}
+          onClose={() => setActiveRaid(null)}
+          onOpenSanctuary={() => {
+            setActiveRaid(null);
+            setCurrentTab('suitcase');
+          }}
+          onShowToast={showToast}
         />
       )}
 

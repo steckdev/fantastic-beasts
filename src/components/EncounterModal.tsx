@@ -5,6 +5,7 @@ import { sounds } from '../services/soundService';
 import { ITEMS } from '../data/itemsData';
 import { SPELLS, getSpellAffinity } from '../data/spellsData';
 import { Disturbance, Hero, Mark, Item, Spell } from '../types';
+import { getMoMClassification } from '../data/ministryClassification';
 
 interface EncounterModalProps {
   disturbance: Disturbance;
@@ -30,6 +31,8 @@ export default function EncounterModal({
   onShowToast
 }: EncounterModalProps) {
   const { beast, cp, mark } = disturbance;
+  const mom = getMoMClassification(beast.classification);
+
   const [phase, setPhase] = useState<'encounter' | 'casting' | 'capturing' | 'caught' | 'fled'>('encounter');
   const [wobbleCount, setWobbleCount] = useState<number>(0);
   const [treatBonus, setTreatBonus] = useState<number>(0);
@@ -51,14 +54,23 @@ export default function EncounterModal({
   const spellAffinity = getSpellAffinity(selectedSpell, beast.type);
   const spellBonusMultiplier = spellAffinity.isSuperEffective ? 1.25 : 1.0;
 
-  // Calculate current catch probability (0.0 to 1.0)
+  // Calculate current catch probability with danger scaling & CP resistance
   const baseCatch = beast.baseCatchRate;
   const heroBonus = hero.catchAccuracyBonus || 1.0;
   const accuracyMultiplier =
-    castAccuracy === 'masterful' ? 1.7 : castAccuracy === 'great' ? 1.4 : castAccuracy === 'good' ? 1.2 : 1.0;
+    castAccuracy === 'masterful' ? 1.6 : castAccuracy === 'great' ? 1.35 : castAccuracy === 'good' ? 1.15 : 1.0;
+  const dangerPenalty = beast.dangerRating >= 4 ? (beast.dangerRating === 5 ? 0.72 : 0.85) : 1.0;
+  const cpDifficultyFactor = Math.max(0.65, 1 - (cp / (beast.maxCP * 1.6)) * 0.35);
+
   const currentCatchChance = Math.min(
-    0.95,
-    (baseCatch + treatBonus) * heroBonus * accuracyMultiplier * spellBonusMultiplier
+    0.92,
+    Math.max(
+      0.12,
+      (baseCatch * dangerPenalty * cpDifficultyFactor + treatBonus) *
+        heroBonus *
+        accuracyMultiplier *
+        spellBonusMultiplier
+    )
   );
 
   // Play creature cry on encounter open
@@ -289,8 +301,19 @@ export default function EncounterModal({
         {/* Top Header */}
         <div style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span className={`threat-badge threat-${beast.dangerRating}`}>
-              Level {beast.dangerRating} • Class {beast.classification}
+            <span
+              className="threat-badge"
+              style={{
+                background: mom.bgColor,
+                color: mom.color,
+                borderColor: mom.borderColor,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px'
+              }}
+            >
+              <span>{mom.sealIcon}</span>
+              <span>{mom.title}</span>
             </span>
             <span
               style={{
@@ -421,12 +444,6 @@ export default function EncounterModal({
                   style={{ width: '100%', height: '100%', objectFit: 'contain' }}
                 />
               </div>
-              <div className="font-cinzel" style={{ fontSize: '1rem', fontWeight: 700, color: '#fbbf24', letterSpacing: '0.1em' }}>
-                {wobbleCount === 0 && 'SUITCASE CLOSING...'}
-                {wobbleCount === 1 && 'SHAKE 1...'}
-                {wobbleCount === 2 && 'SHAKE 2...'}
-                {wobbleCount === 3 && 'SHAKE 3...'}
-              </div>
             </div>
           )}
 
@@ -446,47 +463,33 @@ export default function EncounterModal({
                       : 'drop-shadow(0 8px 16px rgba(0,0,0,0.7))'
                   }}
                 />
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: '-6px',
-                    right: '-6px',
-                    fontSize: '26px'
-                  }}
-                >
-                  🎉
-                </div>
               </div>
 
               <h3 className="font-cinzel" style={{ fontSize: '1.35rem', color: '#34d399', fontWeight: 800 }}>
                 {beast.name.toUpperCase()} CAPTURED!
               </h3>
               <p style={{ color: '#cbd5e1', fontSize: '0.82rem', marginTop: '2px' }}>
-                CP {cp} · Class {beast.classification} · {beast.habitat}
+                CP {cp} · {mom.title} · {beast.habitat}
               </p>
 
-              {/* Reward Highlights */}
+              {/* Reward Highlights - Knuts & XP only, no free energy */}
               <div
                 className="glass-card"
                 style={{
                   margin: '12px auto',
-                  padding: '10px 14px',
+                  padding: '10px 18px',
                   display: 'flex',
                   justifyContent: 'space-around',
-                  maxWidth: '320px',
+                  maxWidth: '280px',
                   borderColor: 'rgba(251, 191, 36, 0.4)'
                 }}
               >
                 <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '0.92rem', fontWeight: 800, color: '#fbbf24' }}>🪙 +30</div>
+                  <div style={{ fontSize: '0.96rem', fontWeight: 800, color: '#fbbf24' }}>🪙 +30</div>
                   <div style={{ fontSize: '0.68rem', color: '#94a3b8' }}>Knuts</div>
                 </div>
                 <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '0.92rem', fontWeight: 800, color: '#38bdf8' }}>⚡ +10</div>
-                  <div style={{ fontSize: '0.68rem', color: '#94a3b8' }}>Spell Energy</div>
-                </div>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '0.92rem', fontWeight: 800, color: '#a855f7' }}>📜 +100</div>
+                  <div style={{ fontSize: '0.96rem', fontWeight: 800, color: '#a855f7' }}>📜 +100</div>
                   <div style={{ fontSize: '0.68rem', color: '#94a3b8' }}>Ministry XP</div>
                 </div>
               </div>
@@ -679,17 +682,17 @@ export default function EncounterModal({
           {phase === 'caught' && (
             <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
               <button
-                className="btn-secondary"
+                className="btn-magical"
                 onClick={onClose}
-                style={{ flex: 1, padding: '12px', fontSize: '0.85rem' }}
+                style={{ flex: 1.2, padding: '12px', fontSize: '0.88rem', fontWeight: 800 }}
               >
                 Keep Exploring
               </button>
               {onOpenSanctuary && (
                 <button
-                  className="btn-magical"
+                  className="btn-secondary"
                   onClick={onOpenSanctuary}
-                  style={{ flex: 1, padding: '12px', fontSize: '0.85rem' }}
+                  style={{ flex: 1, padding: '12px', fontSize: '0.82rem' }}
                 >
                   Suitcase Sanctuary
                 </button>

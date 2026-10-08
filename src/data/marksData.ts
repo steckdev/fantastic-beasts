@@ -128,3 +128,11 @@ export function rollMark(bonusMultiplier: number = 1.0): Mark | null {
   }
   return MARKS[0];
 }
+
+export function rollRaidMark(): Mark | null {
+  // Legendary Raid Bosses have a 45% chance of possessing a rare or mythic mark
+  if (Math.random() > 0.45) return null;
+  const eliteMarks = MARKS.filter((m) => m.rarity === 'Rare' || m.rarity === 'Very Rare' || m.rarity === 'Mythic');
+  return eliteMarks[Math.floor(Math.random() * eliteMarks.length)] || MARKS[0];
+}
+

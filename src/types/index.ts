@@ -1,11 +1,13 @@
-export type MinistryClassification = 'XX' | 'XXX' | 'XXXX' | 'XXXXX';
+export type MinistryClassification = 'X' | 'XX' | 'XXX' | 'XXXX' | 'XXXXX';
 
 export type BeastHabitat =
   | 'Sunlit Plains'
   | 'Enchanted Forest'
   | 'Mystic Marsh'
   | 'Sky Heights'
-  | 'Ancient Ruins';
+  | 'Ancient Ruins'
+  | 'Whispering Mountains'
+  | 'Coastal Waters';
 
 export interface Beast {
   id: string;
@@ -23,6 +25,7 @@ export interface Beast {
   sprite: string;
   lore: string;
   cryFreq: number;
+  isRaidExclusive?: boolean;
 }
 
 export interface Hero {
@@ -97,7 +100,7 @@ export interface Disturbance {
 export interface Waypoint {
   id: string;
   name: string;
-  type: 'inn' | 'greenhouse';
+  type: 'inn' | 'greenhouse' | 'fortress';
   icon: string;
   color: string;
   lat: number;
@@ -105,6 +108,14 @@ export interface Waypoint {
   cooldownUntil: number;
   distMeters?: number;
   inRange?: boolean;
+  raidBoss?: {
+    beastId: string;
+    cp: number;
+    name: string;
+    hp: number;
+    maxHp: number;
+    sprite: string;
+  };
 }
 
 export interface Quest {
@@ -154,6 +165,7 @@ export interface GameStats {
   marksDiscovered: number;
   kmWalked: number;
   treatsFed: number;
+  raidsWon?: number;
 }
 
 export interface GameState {
@@ -170,6 +182,9 @@ export interface GameState {
   caughtBeasts: Record<string, number>;
   attemptedDisturbances: Record<string, { status: 'captured' | 'fled' | 'escaped'; timestamp: number }>;
   activeLureUntil: number | null;
+  raidsCompletedToday?: number;
+  lastRaidDate?: string;
+  isLocationPinned?: boolean;
   stats: GameStats;
   quests: Quest[];
   settings: GameSettings;

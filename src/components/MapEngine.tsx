@@ -1,6 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import L from 'leaflet';
-import { Navigation, Car, Sparkles, Wind, Volume2, VolumeX } from 'lucide-react';
+import { Navigation, Car, Sparkles, Volume2, VolumeX, MapPin } from 'lucide-react';
 import { getDistanceMeters } from '../services/locationService';
 import { HEROES } from '../data/heroesData';
 import { Disturbance, Waypoint, CapturedBeast, Beast } from '../types';
@@ -29,6 +29,8 @@ interface MapEngineProps {
   mapStyle?: 'marauder' | 'parchment' | 'twilight';
   soundEnabled?: boolean;
   onToggleSound?: () => void;
+  isLocationPinned?: boolean;
+  onToggleLocationPin?: () => void;
 }
 
 const DEFAULT_GOOGLE_MAPS_KEY = 'AIzaSyCkIp8w2vY1aAnxAXpd8x5siTbXcnva_rk';
@@ -51,7 +53,9 @@ export default function MapEngine({
   activeLureTimeLeft,
   mapStyle = 'marauder',
   soundEnabled = true,
-  onToggleSound
+  onToggleSound,
+  isLocationPinned = false,
+  onToggleLocationPin
 }: MapEngineProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -60,7 +64,6 @@ export default function MapEngine({
   const buddyMarkerRef = useRef<L.Marker | null>(null);
   const pulseCircleRef = useRef<L.Circle | null>(null);
   const markersGroupRef = useRef<L.LayerGroup | null>(null);
-  const [showJoystick, setShowJoystick] = useState(false);
 
   const hero = HEROES.find((h) => h.id === selectedHeroId) || HEROES[0];
   const buddyBeast: Beast | undefined = buddyInstance
@@ -285,15 +288,15 @@ export default function MapEngine({
               width: 38px;
               height: 38px;
               border-radius: 12px;
-              background: ${isCooldown ? 'rgba(75, 85, 99, 0.85)' : wp.type === 'greenhouse' ? 'linear-gradient(135deg, #059669, #10b981)' : 'linear-gradient(135deg, #b45309, #f59e0b)'};
-              border: 2px solid ${isCooldown ? '#9ca3af' : '#fef08a'};
-              box-shadow: 0 4px 14px ${isCooldown ? 'rgba(0,0,0,0.5)' : 'rgba(245, 158, 11, 0.6)'};
+              background: ${isCooldown ? 'rgba(75, 85, 99, 0.85)' : wp.type === 'fortress' ? 'linear-gradient(135deg, #7e22ce, #c084fc)' : wp.type === 'greenhouse' ? 'linear-gradient(135deg, #059669, #10b981)' : 'linear-gradient(135deg, #b45309, #f59e0b)'};
+              border: 2px solid ${isCooldown ? '#9ca3af' : wp.type === 'fortress' ? '#e9d5ff' : '#fef08a'};
+              box-shadow: 0 4px 18px ${isCooldown ? 'rgba(0,0,0,0.5)' : wp.type === 'fortress' ? 'rgba(192, 132, 252, 0.8)' : 'rgba(245, 158, 11, 0.6)'};
               display: flex;
               align-items: center;
               justify-content: center;
               font-size: 20px;
             ">
-              ${isCooldown ? '⏳' : wp.icon}
+              ${isCooldown ? '⏳' : wp.type === 'fortress' ? '🏰' : wp.icon}
             </div>
             <div style="
               margin-top: 3px;
@@ -400,14 +403,33 @@ export default function MapEngine({
     }
   };
 
-  const stepPlayer = (dLat: number, dLng: number) => {
-    onMovePlayer(playerPos.lat + dLat, playerPos.lng + dLng);
-  };
-
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden' }}>
       {/* Map Container */}
       <div ref={mapContainerRef} style={{ width: '100%', height: '100%' }} />
+
+      {/* Floating Anchored / Pinned Location Notice */}
+      {isLocationPinned && onToggleLocationPin && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 'calc(var(--safe-top) + 64px)',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 410,
+            pointerEvents: 'auto'
+          }}
+        >
+          <div
+            className="location-anchored-badge"
+            onClick={onToggleLocationPin}
+            title="Click to resume live physical GPS tracking"
+          >
+            <MapPin size={13} />
+            <span>ANCHORED (Apparition Point) · Tap to Unpin</span>
+          </div>
+        </div>
+      )}
 
       {/* Top Floating Status Bar */}
       <div
@@ -490,8 +512,22 @@ export default function MapEngine({
           zIndex: 400
         }}
       >
-        <button className="btn-icon" onClick={handleRecenter} title="Center on Player">
-          <Navigation size={20} />
+        {/* Location Pin / Live GPS Toggle */}
+        <button
+          className="btn-icon"
+          onClick={onToggleLocationPin || handleRecenter}
+          title={
+            isLocationPinned
+              ? 'Location Anchored (Click to Resume Live GPS)'
+              : 'Center & Follow Live GPS (Click to Anchor)'
+          }
+          style={{
+            borderColor: isLocationPinned ? '#fbbf24' : 'var(--border-gold)',
+            color: isLocationPinned ? '#fbbf24' : 'var(--gold-bright)',
+            boxShadow: isLocationPinned ? '0 0 16px rgba(251, 191, 36, 0.7)' : undefined
+          }}
+        >
+          {isLocationPinned ? <MapPin size={20} /> : <Navigation size={20} />}
         </button>
 
         <button
@@ -504,18 +540,6 @@ export default function MapEngine({
           }}
         >
           <Car size={20} />
-        </button>
-
-        <button
-          className="btn-icon"
-          onClick={() => setShowJoystick(!showJoystick)}
-          title="Virtual Broomstick Joystick"
-          style={{
-            borderColor: showJoystick ? '#fbbf24' : 'var(--border-gold)',
-            color: showJoystick ? '#fbbf24' : 'var(--gold-bright)'
-          }}
-        >
-          <Wind size={20} />
         </button>
 
         {onToggleSound && (
@@ -532,58 +556,6 @@ export default function MapEngine({
           </button>
         )}
       </div>
-
-      {/* Virtual Joystick / D-Pad */}
-      {showJoystick && (
-        <div
-          className="glass-panel"
-          style={{
-            position: 'absolute',
-            left: '16px',
-            bottom: 'calc(var(--safe-bottom) + 85px)',
-            padding: '8px',
-            borderRadius: '24px',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '4px',
-            zIndex: 400,
-            background: 'rgba(11, 15, 25, 0.88)'
-          }}
-        >
-          <div style={{ fontSize: '0.68rem', color: '#94a3b8', fontWeight: 700, marginBottom: '2px' }}>BROOMSTICK</div>
-          <button
-            className="btn-secondary"
-            style={{ width: '40px', height: '36px', padding: 0 }}
-            onClick={() => stepPlayer(0.00022, 0)}
-          >
-            ▲
-          </button>
-          <div style={{ display: 'flex', gap: '4px' }}>
-            <button
-              className="btn-secondary"
-              style={{ width: '40px', height: '36px', padding: 0 }}
-              onClick={() => stepPlayer(0, -0.00028)}
-            >
-              ◀
-            </button>
-            <button
-              className="btn-secondary"
-              style={{ width: '40px', height: '36px', padding: 0 }}
-              onClick={() => stepPlayer(-0.00022, 0)}
-            >
-              ▼
-            </button>
-            <button
-              className="btn-secondary"
-              style={{ width: '40px', height: '36px', padding: 0 }}
-              onClick={() => stepPlayer(0, 0.00028)}
-            >
-              ▶
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

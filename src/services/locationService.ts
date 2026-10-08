@@ -33,6 +33,8 @@ export function generateDisturbances(
     { type: 'spectral', color: '#c084fc', label: 'Spectral Distortion' }
   ];
 
+  const wildBeasts = BEASTS.filter((b) => !b.isRaidExclusive);
+
   for (let i = 0; i < count; i++) {
     // Offset within 30 to 220 meters
     const angle = Math.random() * Math.PI * 2;
@@ -40,7 +42,7 @@ export function generateDisturbances(
     const deltaLat = (distMeters * Math.cos(angle)) / 111320;
     const deltaLng = (distMeters * Math.sin(angle)) / (111320 * Math.cos((centerLat * Math.PI) / 180));
 
-    const beast = BEASTS[Math.floor(Math.random() * BEASTS.length)];
+    const beast = wildBeasts[Math.floor(Math.random() * wildBeasts.length)];
     const cat = traceCategories[Math.floor(Math.random() * traceCategories.length)];
     const mark = rollMark(bonusMarkMultiplier);
 
@@ -66,22 +68,30 @@ export function generateDisturbances(
   return disturbances;
 }
 
-// Procedural Waypoints (Magical Inns & Greenhouses) around player (works everywhere, including non-POI areas)
+// Procedural Waypoints (Magical Inns, Greenhouses, and Legendary Fortresses replacing 1/5)
 export function generateWaypoints(centerLat: number, centerLng: number, count: number = 7): Waypoint[] {
   const innNames = [
     'The Leaky Cauldron Inn',
     'The Hog\'s Head Outpost',
     'Madame Malkin\'s Rest Stop',
     'Flourish & Blotts Registry',
-    'Herbology Greenhouse #3',
     'Slug & Jiggers Apothecary',
     'MACUSA Auror Watchtower',
     'Jacob Kowalski\'s Bakery Waypoint',
     'Magical Menagerie Supply Cache',
     'Ollivanders Wand Workshop',
-    'Mandrake Conservatory #5',
     'The Blind Pig Speakeasy'
   ];
+
+  const fortressNames = [
+    'Ancient Leyline Citadel',
+    'Obsidian Dragon Spire',
+    'MACUSA Maximum Ward Vault',
+    'Tormenting Storm Spire',
+    'High Alchemist Ancient Keep'
+  ];
+
+  const raidBeasts = BEASTS.filter((b) => b.isRaidExclusive);
 
   const waypoints: Waypoint[] = [];
   for (let i = 0; i < count; i++) {
@@ -90,16 +100,49 @@ export function generateWaypoints(centerLat: number, centerLng: number, count: n
     const deltaLat = (distMeters * Math.cos(angle)) / 111320;
     const deltaLng = (distMeters * Math.sin(angle)) / (111320 * Math.cos((centerLat * Math.PI) / 180));
 
-    const isGreenhouse = i % 2 === 1;
+    // 1 in 5 (20%) replaces an inn with a Legendary Fortress
+    const isFortress = i % 5 === 0;
+    const isGreenhouse = !isFortress && i % 2 === 1;
+
+    let wpType: 'inn' | 'greenhouse' | 'fortress' = 'inn';
+    let wpName = innNames[i % innNames.length];
+    let wpIcon = '🍺';
+    let wpColor = '#f59e0b';
+    let raidBossData = undefined;
+
+    if (isFortress) {
+      wpType = 'fortress';
+      wpName = fortressNames[i % fortressNames.length];
+      wpIcon = '🏰';
+      wpColor = '#c084fc';
+
+      const bossDef = raidBeasts.length > 0 ? raidBeasts[i % raidBeasts.length] : BEASTS[0];
+      const bossCp = Math.floor(bossDef.minCP * 1.35 + Math.random() * 600);
+      raidBossData = {
+        beastId: bossDef.id,
+        cp: bossCp,
+        name: bossDef.name,
+        hp: 100,
+        maxHp: 100,
+        sprite: bossDef.sprite
+      };
+    } else if (isGreenhouse) {
+      wpType = 'greenhouse';
+      wpName = `Herbology Conservatory #${(i % 4) + 1}`;
+      wpIcon = '🌿';
+      wpColor = '#10b981';
+    }
+
     waypoints.push({
       id: `waypoint_${Math.floor(centerLat * 1000)}_${Math.floor(centerLng * 1000)}_${i}`,
-      name: innNames[i % innNames.length],
-      type: isGreenhouse ? 'greenhouse' : 'inn',
-      icon: isGreenhouse ? '🌿' : '🍺',
-      color: isGreenhouse ? '#10b981' : '#f59e0b',
+      name: wpName,
+      type: wpType,
+      icon: wpIcon,
+      color: wpColor,
       lat: centerLat + deltaLat,
       lng: centerLng + deltaLng,
-      cooldownUntil: 0
+      cooldownUntil: 0,
+      raidBoss: raidBossData
     });
   }
 

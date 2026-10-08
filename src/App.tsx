@@ -445,8 +445,15 @@ export default function App() {
         return q;
       });
 
+      const newInventory = {
+        ...prev.inventory,
+        knuts: (prev.inventory.knuts || 0) + 30,
+        spell_energy: Math.min(100, (prev.inventory.spell_energy || 0) + 10)
+      };
+
       return {
         ...prev,
+        inventory: newInventory,
         suitcase: [newBeast, ...prev.suitcase],
         buddyInstanceId: prev.buddyInstanceId || newBeast.instanceId,
         caughtBeasts: {
@@ -625,6 +632,131 @@ export default function App() {
     showToast('Buddy Companion Assigned', 'They will now walk alongside you on the magical map!', 'success');
   };
 
+  // Toggle quick map sound
+  const handleToggleSound = () => {
+    const currentSound = gameState.settings?.soundEnabled ?? true;
+    const newSound = !currentSound;
+    setGameState((prev) => ({
+      ...prev,
+      settings: { ...prev.settings, soundEnabled: newSound }
+    }));
+    sounds.toggleSound(newSound);
+    showToast('Audio Settings', newSound ? 'Game audio enabled 🔊' : 'Game audio muted 🔇', 'info');
+  };
+
+  // Beast Power Up CP (Infuse leylines)
+  const handlePowerUpBeast = (instanceId: string) => {
+    const beastInstance = gameState.suitcase.find((b) => b.instanceId === instanceId);
+    if (!beastInstance) return;
+    const beastDef = BEASTS.find((b) => b.id === beastInstance.beastId);
+    const beastName = beastInstance.nickname || beastDef?.name || 'Beast';
+
+    const cost = 45;
+    if ((gameState.inventory.knuts || 0) < cost) {
+      showToast('Need More Knuts', `Powering up requires ${cost} Knuts (Have: ${gameState.inventory.knuts || 0})`, 'warning');
+      return;
+    }
+
+    const cpGain = Math.floor(Math.random() * 21) + 18; // +18 to +38 CP
+    const newCp = beastInstance.cp + cpGain;
+
+    setGameState((prev) => {
+      const updatedSuitcase = prev.suitcase.map((b) => {
+        if (b.instanceId === instanceId) {
+          const newXP = (b.bondXP || 0) + 15;
+          const newLevel = Math.min(10, Math.floor(newXP / 100) + 1);
+          return {
+            ...b,
+            cp: newCp,
+            bondXP: newXP,
+            bondLevel: newLevel
+          };
+        }
+        return b;
+      });
+
+      return {
+        ...prev,
+        inventory: {
+          ...prev.inventory,
+          knuts: Math.max(0, (prev.inventory.knuts || 0) - cost)
+        },
+        suitcase: updatedSuitcase
+      };
+    });
+
+    sounds.playPowerUp();
+    confetti({
+      particleCount: 35,
+      spread: 60,
+      origin: { y: 0.4 },
+      colors: ['#38bdf8', '#fbbf24', '#a855f7', '#ffffff']
+    });
+
+    showToast('Power Up Successful!', `${beastName}'s CP increased by +${cpGain} to ${newCp}! ⚡`, 'success');
+  };
+
+  // Relocate Beast to MACUSA Ministry
+  const handleRelocateBeast = (instanceId: string) => {
+    const beastInstance = gameState.suitcase.find((b) => b.instanceId === instanceId);
+    if (!beastInstance) return;
+    const beastDef = BEASTS.find((b) => b.id === beastInstance.beastId);
+    const beastName = beastInstance.nickname || beastDef?.name || 'Beast';
+
+    if (instanceId === gameState.buddyInstanceId) {
+      showToast('Cannot Relocate', 'Please unassign this creature as your buddy before transferring!', 'warning');
+      return;
+    }
+
+    const treatKeys = ['treat_brioche', 'treat_gilded_knut', 'treat_woodlice', 'treat_moon_pellets'];
+    const bonusTreat = treatKeys[Math.floor(Math.random() * treatKeys.length)];
+
+    setGameState((prev) => {
+      const remainingSuitcase = prev.suitcase.filter((b) => b.instanceId !== instanceId);
+      const newInventory = {
+        ...prev.inventory,
+        knuts: (prev.inventory.knuts || 0) + 40,
+        spell_energy: Math.min(100, (prev.inventory.spell_energy || 0) + 15),
+        [bonusTreat]: (prev.inventory[bonusTreat] || 0) + 1
+      };
+
+      return {
+        ...prev,
+        suitcase: remainingSuitcase,
+        inventory: newInventory
+      };
+    });
+
+    sounds.playSpinChime();
+    showToast(
+      'Relocated to Ministry',
+      `Transferred ${beastName}! Received 40 Knuts, 1 Treat, and 15 Spell Energy!`,
+      'success'
+    );
+  };
+
+  // Toggle Favorite Star
+  const handleToggleFavorite = (instanceId: string) => {
+    let nowFavorite = false;
+    setGameState((prev) => {
+      const updatedSuitcase = prev.suitcase.map((b) => {
+        if (b.instanceId === instanceId) {
+          nowFavorite = !b.isFavorite;
+          return { ...b, isFavorite: nowFavorite };
+        }
+        return b;
+      });
+      return { ...prev, suitcase: updatedSuitcase };
+    });
+
+    sounds.playSparkle();
+    showToast(
+      nowFavorite ? 'Added to Favorites' : 'Removed from Favorites',
+      nowFavorite ? 'Creature pinned & protected! ⭐' : 'Creature unpinned.',
+      'info'
+    );
+  };
+
   // Claim Quest Reward
   const handleClaimQuestReward = (questId: string, reward: Record<string, number>) => {
     setGameState((prev) => {
@@ -732,6 +864,8 @@ export default function App() {
         onSelectWaypoint={handleSelectWaypoint}
         activeLureTimeLeft={lureTimeLeft}
         mapStyle={gameState.settings?.mapStyle || 'marauder'}
+        soundEnabled={gameState.settings?.soundEnabled ?? true}
+        onToggleSound={handleToggleSound}
       />
 
       {/* 2. Top-Level Tab Views */}
@@ -746,6 +880,9 @@ export default function App() {
             onFeedBeast={handleFeedBeast}
             onPetBeast={handlePetBeast}
             onRenameBeast={handleRenameBeast}
+            onPowerUpBeast={handlePowerUpBeast}
+            onRelocateBeast={handleRelocateBeast}
+            onToggleFavorite={handleToggleFavorite}
             onClose={() => setCurrentTab('map')}
             onShowToast={showToast}
           />
@@ -772,6 +909,10 @@ export default function App() {
           onCaptureSuccess={handleCaptureSuccess}
           onFlee={handleFlee}
           onClose={handleCloseEncounter}
+          onOpenSanctuary={() => {
+            setActiveEncounter(null);
+            setCurrentTab('suitcase');
+          }}
           onShowToast={showToast}
         />
       )}

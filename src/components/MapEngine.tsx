@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
-import { Navigation, Car, Sparkles, Wind } from 'lucide-react';
+import { Navigation, Car, Sparkles, Wind, Volume2, VolumeX } from 'lucide-react';
 import { getDistanceMeters } from '../services/locationService';
 import { HEROES } from '../data/heroesData';
 import { Disturbance, Waypoint, CapturedBeast, Beast } from '../types';
@@ -27,6 +27,8 @@ interface MapEngineProps {
   onSelectWaypoint: (wp: Waypoint, inRange: boolean, distMeters: number) => void;
   activeLureTimeLeft: number;
   mapStyle?: 'marauder' | 'parchment' | 'twilight';
+  soundEnabled?: boolean;
+  onToggleSound?: () => void;
 }
 
 const DEFAULT_GOOGLE_MAPS_KEY = 'AIzaSyCkIp8w2vY1aAnxAXpd8x5siTbXcnva_rk';
@@ -47,7 +49,9 @@ export default function MapEngine({
   onSelectDisturbance,
   onSelectWaypoint,
   activeLureTimeLeft,
-  mapStyle = 'marauder'
+  mapStyle = 'marauder',
+  soundEnabled = true,
+  onToggleSound
 }: MapEngineProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -513,6 +517,20 @@ export default function MapEngine({
         >
           <Wind size={20} />
         </button>
+
+        {onToggleSound && (
+          <button
+            className="btn-icon"
+            onClick={onToggleSound}
+            title={soundEnabled ? 'Mute Game Audio' : 'Enable Game Audio'}
+            style={{
+              borderColor: soundEnabled ? 'var(--border-gold)' : 'rgba(239, 68, 68, 0.6)',
+              color: soundEnabled ? 'var(--gold-bright)' : '#f87171'
+            }}
+          >
+            {soundEnabled ? <Volume2 size={20} /> : <VolumeX size={20} />}
+          </button>
+        )}
       </div>
 
       {/* Virtual Joystick / D-Pad */}

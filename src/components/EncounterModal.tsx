@@ -14,6 +14,7 @@ interface EncounterModalProps {
   onCaptureSuccess: (data: { beastId: string; cp: number; mark: Mark | null }) => void;
   onFlee: (disturbanceId: string) => void;
   onClose: () => void;
+  onOpenSanctuary?: () => void;
   onShowToast?: (title: string, message: string, type: 'info' | 'success' | 'warning' | 'error' | 'energy' | 'mark') => void;
 }
 
@@ -25,6 +26,7 @@ export default function EncounterModal({
   onCaptureSuccess,
   onFlee,
   onClose,
+  onOpenSanctuary,
   onShowToast
 }: EncounterModalProps) {
   const { beast, cp, mark } = disturbance;
@@ -430,19 +432,71 @@ export default function EncounterModal({
 
           {/* Caught Success View */}
           {phase === 'caught' && (
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '72px', marginBottom: '8px' }}>🎉</div>
-              <h3 className="font-cinzel" style={{ fontSize: '1.4rem', color: '#34d399', fontWeight: 800 }}>
-                BEAST CAPTURED!
+            <div style={{ textAlign: 'center', width: '100%', animation: 'slideUp 0.35s ease-out' }}>
+              <div style={{ position: 'relative', width: '130px', height: '130px', margin: '0 auto 8px' }}>
+                <img
+                  src={beast.sprite}
+                  alt={beast.name}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'contain',
+                    filter: mark
+                      ? `drop-shadow(0 0 16px ${mark.color})`
+                      : 'drop-shadow(0 8px 16px rgba(0,0,0,0.7))'
+                  }}
+                />
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: '-6px',
+                    right: '-6px',
+                    fontSize: '26px'
+                  }}
+                >
+                  🎉
+                </div>
+              </div>
+
+              <h3 className="font-cinzel" style={{ fontSize: '1.35rem', color: '#34d399', fontWeight: 800 }}>
+                {beast.name.toUpperCase()} CAPTURED!
               </h3>
-              <p style={{ color: '#cbd5e1', fontSize: '0.88rem', marginTop: '4px' }}>
-                Safely contained in Newt's Suitcase Sanctuary!
+              <p style={{ color: '#cbd5e1', fontSize: '0.82rem', marginTop: '2px' }}>
+                CP {cp} · Class {beast.classification} · {beast.habitat}
               </p>
+
+              {/* Reward Highlights */}
+              <div
+                className="glass-card"
+                style={{
+                  margin: '12px auto',
+                  padding: '10px 14px',
+                  display: 'flex',
+                  justifyContent: 'space-around',
+                  maxWidth: '320px',
+                  borderColor: 'rgba(251, 191, 36, 0.4)'
+                }}
+              >
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: '0.92rem', fontWeight: 800, color: '#fbbf24' }}>🪙 +30</div>
+                  <div style={{ fontSize: '0.68rem', color: '#94a3b8' }}>Knuts</div>
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: '0.92rem', fontWeight: 800, color: '#38bdf8' }}>⚡ +10</div>
+                  <div style={{ fontSize: '0.68rem', color: '#94a3b8' }}>Spell Energy</div>
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: '0.92rem', fontWeight: 800, color: '#a855f7' }}>📜 +100</div>
+                  <div style={{ fontSize: '0.68rem', color: '#94a3b8' }}>Ministry XP</div>
+                </div>
+              </div>
+
               {mark && (
                 <div
                   className="glass-card"
                   style={{
-                    marginTop: '12px',
+                    margin: '8px auto 6px',
+                    maxWidth: '320px',
                     padding: '8px 12px',
                     borderColor: mark.color,
                     color: mark.color,
@@ -452,7 +506,7 @@ export default function EncounterModal({
                   <div style={{ fontWeight: 800, fontSize: '0.85rem' }}>
                     {mark.icon} Rare Mark: {mark.title}
                   </div>
-                  <div style={{ fontSize: '0.75rem', color: '#cbd5e1' }}>{mark.bonusText}</div>
+                  <div style={{ fontSize: '0.74rem', color: '#cbd5e1' }}>{mark.bonusText}</div>
                 </div>
               )}
             </div>
@@ -622,7 +676,28 @@ export default function EncounterModal({
             </>
           )}
 
-          {(phase === 'caught' || phase === 'fled') && (
+          {phase === 'caught' && (
+            <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
+              <button
+                className="btn-secondary"
+                onClick={onClose}
+                style={{ flex: 1, padding: '12px', fontSize: '0.85rem' }}
+              >
+                Keep Exploring
+              </button>
+              {onOpenSanctuary && (
+                <button
+                  className="btn-magical"
+                  onClick={onOpenSanctuary}
+                  style={{ flex: 1, padding: '12px', fontSize: '0.85rem' }}
+                >
+                  Suitcase Sanctuary
+                </button>
+              )}
+            </div>
+          )}
+
+          {phase === 'fled' && (
             <button className="btn-magical" onClick={onClose} style={{ width: '100%', padding: '14px' }}>
               Return to Map
             </button>

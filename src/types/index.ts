@@ -77,6 +77,7 @@ export interface CapturedBeast {
   timesFed: number;
   timesPetted: number;
   kmWalked?: number;
+  isFavorite?: boolean;
 }
 
 export interface Disturbance {

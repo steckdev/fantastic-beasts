@@ -68,5 +68,12 @@ export const ITEMS: Record<string, Item> = {
     description: 'A bottle of rare beast pheromones that draws 4 wild Fantastic Beasts directly to you.',
     category: 'lure',
     durationMinutes: 15
+  },
+  energy_crystal: {
+    id: 'energy_crystal',
+    name: 'Leyline Energy Crystal',
+    icon: '💎',
+    description: 'A crystallized drop of concentrated leyline magic. Instantly restores +40 Spell Energy when shattered.',
+    category: 'energy'
   }
 };

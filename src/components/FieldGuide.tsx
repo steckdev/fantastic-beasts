@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
 import { BEASTS } from '../data/beastsData';
+import { SPELLS } from '../data/spellsData';
+import { sounds } from '../services/soundService';
 import { Beast, MinistryClassification } from '../types';
 
 interface FieldGuideProps {
@@ -177,12 +179,26 @@ export default function FieldGuide({ caughtBeasts, seenBeasts, onClose }: FieldG
               <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>{inspectBeast.species}</div>
             </div>
 
+            <div style={{ display: 'flex', gap: '8px', width: '100%', justifyContent: 'center' }}>
+              <button
+                className="btn-secondary"
+                onClick={() => sounds.playCreatureCry(inspectBeast.cryFreq || 440)}
+                style={{ padding: '6px 14px', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <span>🔊</span>
+                <span>Listen to Call</span>
+              </button>
+            </div>
+
             <div style={{ display: 'flex', gap: '8px' }}>
               <span className={`threat-badge threat-${inspectBeast.dangerRating}`}>
                 Threat Level {inspectBeast.dangerRating}
               </span>
               <span className="glass-card" style={{ padding: '3px 8px', fontSize: '0.75rem', color: '#fbbf24' }}>
                 Ministry Class {inspectBeast.classification}
+              </span>
+              <span className="glass-card" style={{ padding: '3px 8px', fontSize: '0.75rem', color: '#38bdf8' }}>
+                Type: {inspectBeast.type}
               </span>
             </div>
 
@@ -193,9 +209,50 @@ export default function FieldGuide({ caughtBeasts, seenBeasts, onClose }: FieldG
               <div style={{ marginBottom: '6px' }}>
                 <strong style={{ color: '#ec4899' }}>Favorite Treat:</strong> {inspectBeast.favoriteTreat}
               </div>
-              <p style={{ color: '#cbd5e1', lineHeight: '1.4', fontSize: '0.8rem', marginTop: '8px' }}>
+
+              {/* Recommended Wand Spell */}
+              {(() => {
+                const recSpell =
+                  SPELLS.find((s) => s.effectiveTypes.includes(inspectBeast.type)) ||
+                  SPELLS.find((s) => s.id === 'flipendo');
+                if (!recSpell) return null;
+                return (
+                  <div
+                    style={{
+                      marginTop: '8px',
+                      marginBottom: '8px',
+                      padding: '6px 10px',
+                      background: 'rgba(15, 23, 42, 0.7)',
+                      borderRadius: '8px',
+                      border: `1px solid ${recSpell.color}`
+                    }}
+                  >
+                    <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>Recommended Wand Charm:</div>
+                    <div style={{ fontWeight: 800, color: recSpell.color, fontSize: '0.82rem', marginTop: '2px' }}>
+                      {recSpell.icon} {recSpell.name} ("{recSpell.incantation}")
+                    </div>
+                  </div>
+                );
+              })()}
+
+              <p style={{ color: '#cbd5e1', lineHeight: '1.4', fontSize: '0.8rem', marginTop: '6px' }}>
                 {inspectBeast.lore}
               </p>
+
+              <div
+                style={{
+                  marginTop: '10px',
+                  paddingTop: '8px',
+                  borderTop: '1px solid rgba(255,255,255,0.1)',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  fontSize: '0.74rem',
+                  color: '#94a3b8'
+                }}
+              >
+                <span>Seen in Wild: <strong>{seenBeasts[inspectBeast.id] || 0}</strong></span>
+                <span style={{ color: '#34d399' }}>Rescued into Suitcase: <strong>{caughtBeasts[inspectBeast.id] || 0}</strong></span>
+              </div>
             </div>
 
             <button className="btn-magical" style={{ width: '100%' }} onClick={() => setInspectBeast(null)}>

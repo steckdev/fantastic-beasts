@@ -19,6 +19,7 @@ import QuestsModal from './components/QuestsModal';
 import SettingsModal from './components/SettingsModal';
 import Navigation from './components/Navigation';
 import Toast from './components/Toast';
+import ItemBagModal from './components/ItemBagModal';
 
 // Default initial coordinates (New York City / Woolworth Building MACUSA Headquarters)
 const DEFAULT_LAT = 40.7124;
@@ -37,6 +38,7 @@ export default function App() {
   const [showHeroSelect, setShowHeroSelect] = useState<boolean>(!gameState.hasChosenHero);
   const [showQuests, setShowQuests] = useState<boolean>(false);
   const [showSettings, setShowSettings] = useState<boolean>(false);
+  const [showItemBag, setShowItemBag] = useState<boolean>(false);
 
   // In-game Toast Notification System (replaces native window.alert)
   const [activeToast, setActiveToast] = useState<ToastNotification | null>(null);
@@ -564,6 +566,25 @@ export default function App() {
     );
   };
 
+  // Use Satchel Item directly from Bag
+  const handleUseBagItem = (itemKey: string) => {
+    if (itemKey === 'energy_crystal') {
+      if ((gameState.inventory.energy_crystal || 0) <= 0) return;
+      handleConsumeItem('energy_crystal', 1);
+      setGameState((prev) => ({
+        ...prev,
+        inventory: {
+          ...prev.inventory,
+          spell_energy: Math.min(100, (prev.inventory.spell_energy || 0) + 40)
+        }
+      }));
+      sounds.playSpinChime();
+      showToast('Energy Restored!', 'Shattered a Leyline Crystal! Gained +40 Spell Energy ⚡', 'energy');
+    } else if (itemKey === 'beast_lure') {
+      handleActivateLure();
+    }
+  };
+
   const unreadTasksCount = gameState.quests.filter((q) => q.current >= q.target && !q.claimed).length;
 
   return (
@@ -703,9 +724,21 @@ export default function App() {
         />
       )}
 
-      {/* Quick Lure Activation Button */}
+      {showItemBag && (
+        <ItemBagModal
+          inventory={gameState.inventory}
+          onUseItem={handleUseBagItem}
+          onOpenSanctuary={() => {
+            setShowItemBag(false);
+            setCurrentTab('suitcase');
+          }}
+          onClose={() => setShowItemBag(false)}
+        />
+      )}
+
+      {/* Quick Lure & Satchel Bag HUD Buttons */}
       {currentTab === 'map' && (
-        <div style={{ position: 'fixed', left: '16px', top: 'calc(var(--safe-top) + 60px)', zIndex: 400 }}>
+        <div style={{ position: 'fixed', left: '16px', top: 'calc(var(--safe-top) + 60px)', zIndex: 400, display: 'flex', gap: '8px' }}>
           <button
             onClick={handleActivateLure}
             className="btn-magical"
@@ -714,6 +747,16 @@ export default function App() {
           >
             <span>🧳</span>
             <span>Lure (x{gameState.inventory.beast_lure || 0})</span>
+          </button>
+
+          <button
+            onClick={() => setShowItemBag(true)}
+            className="btn-secondary"
+            style={{ padding: '6px 12px', fontSize: '0.76rem', display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(15, 23, 42, 0.85)' }}
+            title="Open Enchanted Satchel"
+          >
+            <span>🎒</span>
+            <span>Bag</span>
           </button>
         </div>
       )}

@@ -274,6 +274,22 @@ export default function App() {
 
   // Handle Apparition (Magical Teleportation to distant beast or waypoint)
   const handleApparate = (target: ApparitionTarget) => {
+    const currentEnergy = gameState.inventory.spell_energy ?? 0;
+    const APPARITION_ENERGY_COST = 10;
+
+    if (currentEnergy < APPARITION_ENERGY_COST) {
+      sounds.playSpellFailure();
+      showToast(
+        'Depleted Spell Energy',
+        `Apparition requires ${APPARITION_ENERGY_COST} ⚡ Energy (you have ${currentEnergy}). Visit an Inn or shatter a Leyline Crystal!`,
+        'energy'
+      );
+      return;
+    }
+
+    // Deduct 10 spell energy
+    handleConsumeItem('spell_energy', APPARITION_ENERGY_COST);
+
     const destLat = target.type === 'disturbance' ? target.disturbance!.lat : target.waypoint!.lat;
     const destLng = target.type === 'disturbance' ? target.disturbance!.lng : target.waypoint!.lng;
     const destName = target.type === 'disturbance' ? target.disturbance!.beast.name : target.waypoint!.name;
@@ -320,7 +336,7 @@ export default function App() {
         }
       }
 
-      showToast('⚡ *CRACK!*', `Apparated to ${destName}! Location pinned.`, 'success');
+      showToast('⚡ *CRACK!*', `Apparated to ${destName}! (-10 ⚡ Energy)`, 'success');
     }, 450);
   };
 
@@ -984,6 +1000,7 @@ export default function App() {
         <WaypointModal
           waypoint={activeWaypoint}
           inRange={activeWaypoint.inRange ?? false}
+          currentEnergy={gameState.inventory.spell_energy || 0}
           onSpinSuccess={handleWaypointSpinSuccess}
           onClose={() => setActiveWaypoint(null)}
           onApparate={() =>
@@ -1020,6 +1037,7 @@ export default function App() {
       {apparitionTarget && (
         <ApparitionModal
           target={apparitionTarget}
+          currentEnergy={gameState.inventory.spell_energy || 0}
           onApparate={handleApparate}
           onClose={() => setApparitionTarget(null)}
         />

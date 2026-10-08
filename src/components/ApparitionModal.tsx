@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Zap, MapPin, Sparkles, Compass } from 'lucide-react';
+import { X, Zap, MapPin, Sparkles, Compass, Lock } from 'lucide-react';
 import { Disturbance, Waypoint } from '../types';
 
 export interface ApparitionTarget {
@@ -11,11 +11,12 @@ export interface ApparitionTarget {
 
 interface ApparitionModalProps {
   target: ApparitionTarget | null;
+  currentEnergy?: number;
   onApparate: (target: ApparitionTarget) => void;
   onClose: () => void;
 }
 
-export default function ApparitionModal({ target, onApparate, onClose }: ApparitionModalProps) {
+export default function ApparitionModal({ target, currentEnergy = 100, onApparate, onClose }: ApparitionModalProps) {
   if (!target) return null;
 
   const isDisturbance = target.type === 'disturbance' && target.disturbance;
@@ -191,23 +192,63 @@ export default function ApparitionModal({ target, onApparate, onClose }: Apparit
           <strong style={{ color: '#c084fc' }}>Deliberation</strong> — to instantly Apparate beside it.
         </p>
 
+        {/* Energy Cost Pill */}
+        <div
+          style={{
+            width: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '10px 14px',
+            borderRadius: '12px',
+            background: currentEnergy >= 10 ? 'rgba(56, 189, 248, 0.1)' : 'rgba(239, 68, 68, 0.12)',
+            border: `1px solid ${currentEnergy >= 10 ? 'rgba(56, 189, 248, 0.35)' : 'rgba(239, 68, 68, 0.4)'}`
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Zap size={15} color={currentEnergy >= 10 ? '#38bdf8' : '#f87171'} />
+            <span style={{ fontSize: '0.84rem', color: '#e2e8f0', fontWeight: 600 }}>Apparition Cost</span>
+          </div>
+          <span
+            style={{
+              fontSize: '0.88rem',
+              fontWeight: 800,
+              color: currentEnergy >= 10 ? '#38bdf8' : '#f87171',
+              textShadow: currentEnergy >= 10 ? '0 0 8px rgba(56, 189, 248, 0.5)' : '0 0 8px rgba(239, 68, 68, 0.5)'
+            }}
+          >
+            -10 ⚡ <span style={{ fontSize: '0.74rem', color: '#94a3b8', fontWeight: 500 }}>(Have {currentEnergy} ⚡)</span>
+          </span>
+        </div>
+
         {/* Action Buttons */}
         <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <button
             className="btn-magical"
+            disabled={currentEnergy < 10}
             onClick={() => onApparate(target)}
             style={{
               width: '100%',
               padding: '13px',
               fontSize: '0.96rem',
               fontWeight: 800,
-              background: 'linear-gradient(135deg, #7c3aed 0%, #4338ca 100%)',
-              borderColor: '#c084fc',
-              boxShadow: '0 0 20px rgba(168, 85, 247, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.2)'
+              background: currentEnergy >= 10
+                ? 'linear-gradient(135deg, #7c3aed 0%, #4338ca 100%)'
+                : 'rgba(51, 65, 85, 0.5)',
+              borderColor: currentEnergy >= 10 ? '#c084fc' : 'rgba(255, 255, 255, 0.15)',
+              boxShadow: currentEnergy >= 10
+                ? '0 0 20px rgba(168, 85, 247, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.2)'
+                : 'none',
+              opacity: currentEnergy >= 10 ? 1 : 0.6,
+              cursor: currentEnergy >= 10 ? 'pointer' : 'not-allowed',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px'
             }}
           >
-            <Zap size={18} />
-            <span>Apparate to Location!</span>
+            {currentEnergy >= 10 ? <Zap size={18} /> : <Lock size={18} />}
+            <span>{currentEnergy >= 10 ? 'Apparate to Location (-10 ⚡)' : 'Insufficient Spell Energy (-10 ⚡ needed)'}</span>
           </button>
 
           <button

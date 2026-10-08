@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import confetti from 'canvas-confetti';
-import { X, RotateCw, Zap } from 'lucide-react';
+import { X, RotateCw, Zap, Lock } from 'lucide-react';
 import { sounds } from '../services/soundService';
 import { ITEMS } from '../data/itemsData';
 import { Waypoint } from '../types';
@@ -8,12 +8,13 @@ import { Waypoint } from '../types';
 interface WaypointModalProps {
   waypoint: Waypoint;
   inRange: boolean;
+  currentEnergy?: number;
   onSpinSuccess: (waypointId: string, rewards: Record<string, number>) => void;
   onClose: () => void;
   onApparate?: () => void;
 }
 
-export default function WaypointModal({ waypoint, inRange, onSpinSuccess, onClose, onApparate }: WaypointModalProps) {
+export default function WaypointModal({ waypoint, inRange, currentEnergy = 100, onSpinSuccess, onClose, onApparate }: WaypointModalProps) {
   const [spinning, setSpinning] = useState<boolean>(false);
   const [rewards, setRewards] = useState<Record<string, number> | null>(null);
 
@@ -144,20 +145,38 @@ export default function WaypointModal({ waypoint, inRange, onSpinSuccess, onClos
             Inn recharging energy leylines. Available in {Math.ceil(cooldownSecs / 60)} minutes.
           </div>
         ) : !inRange ? (
-          <button
-            className="btn-magical"
-            onClick={onApparate}
-            style={{
-              width: '100%',
-              padding: '12px',
-              background: 'linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%)',
-              borderColor: '#c084fc',
-              boxShadow: '0 0 16px rgba(168, 85, 247, 0.4)'
-            }}
-          >
-            <Zap size={18} />
-            <span>⚡ Apparate to Location {waypoint.distMeters ? `(${waypoint.distMeters}m)` : ''}</span>
-          </button>
+          <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <button
+              className="btn-magical"
+              disabled={currentEnergy < 10}
+              onClick={onApparate}
+              style={{
+                width: '100%',
+                padding: '12px',
+                background: currentEnergy >= 10
+                  ? 'linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%)'
+                  : 'rgba(51, 65, 85, 0.5)',
+                borderColor: currentEnergy >= 10 ? '#c084fc' : 'rgba(255, 255, 255, 0.15)',
+                boxShadow: currentEnergy >= 10 ? '0 0 16px rgba(168, 85, 247, 0.4)' : 'none',
+                opacity: currentEnergy >= 10 ? 1 : 0.6,
+                cursor: currentEnergy >= 10 ? 'pointer' : 'not-allowed',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px'
+              }}
+            >
+              {currentEnergy >= 10 ? <Zap size={18} /> : <Lock size={18} />}
+              <span>
+                {currentEnergy >= 10
+                  ? `Apparate to Location (-10 ⚡)`
+                  : `Need 10 ⚡ to Apparate (Have ${currentEnergy} ⚡)`}
+              </span>
+            </button>
+            <div style={{ fontSize: '0.76rem', color: '#94a3b8', textAlign: 'center' }}>
+              Apparition costs 10 Spell Energy {waypoint.distMeters ? `· ${waypoint.distMeters}m away` : ''}
+            </div>
+          </div>
         ) : (
           <button
             className="btn-magical"

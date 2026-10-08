@@ -1,8 +1,31 @@
 import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
-import { Compass, Navigation, Car, Sparkles, MapPin, Wind } from 'lucide-react';
+import { Navigation, Car, Sparkles, Wind } from 'lucide-react';
 import { getDistanceMeters } from '../services/locationService';
 import { HEROES } from '../data/heroesData';
+import { Disturbance, Waypoint, CapturedBeast, Beast } from '../types';
+import { BEASTS } from '../data/beastsData';
+import BuddyWidget from './BuddyWidget';
+
+interface MapEngineProps {
+  playerPos: { lat: number; lng: number };
+  onMovePlayer: (lat: number, lng: number) => void;
+  disturbances: Disturbance[];
+  waypoints: Waypoint[];
+  selectedHeroId: string;
+  buddyInstance: CapturedBeast | null;
+  buddyProgressKm: number;
+  totalKmWalked: number;
+  totalSteps: number;
+  onOpenBuddySelect: () => void;
+  driveMode: boolean;
+  onToggleDriveMode: () => void;
+  useVirtualGPS: boolean;
+  onToggleVirtualGPS: () => void;
+  onSelectDisturbance: (distObj: Disturbance, inRange: boolean, distMeters: number) => void;
+  onSelectWaypoint: (wp: Waypoint, inRange: boolean, distMeters: number) => void;
+  activeLureTimeLeft: number;
+}
 
 export default function MapEngine({
   playerPos,
@@ -10,22 +33,30 @@ export default function MapEngine({
   disturbances,
   waypoints,
   selectedHeroId,
+  buddyInstance,
+  buddyProgressKm,
+  totalKmWalked,
+  totalSteps,
+  onOpenBuddySelect,
   driveMode,
   onToggleDriveMode,
-  useVirtualGPS,
-  onToggleVirtualGPS,
   onSelectDisturbance,
   onSelectWaypoint,
   activeLureTimeLeft
-}) {
-  const mapContainerRef = useRef(null);
-  const mapInstanceRef = useRef(null);
-  const playerMarkerRef = useRef(null);
-  const pulseCircleRef = useRef(null);
-  const markersGroupRef = useRef(null);
+}: MapEngineProps) {
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<L.Map | null>(null);
+  const playerMarkerRef = useRef<L.Marker | null>(null);
+  const buddyMarkerRef = useRef<L.Marker | null>(null);
+  const pulseCircleRef = useRef<L.Circle | null>(null);
+  const markersGroupRef = useRef<L.LayerGroup | null>(null);
   const [showJoystick, setShowJoystick] = useState(false);
 
   const hero = HEROES.find((h) => h.id === selectedHeroId) || HEROES[0];
+  const buddyBeast: Beast | undefined = buddyInstance
+    ? BEASTS.find((b) => b.id === buddyInstance.beastId)
+    : undefined;
+
   const interactionRadius = driveMode ? 130 : 80;
 
   // Initialize Leaflet Map
@@ -42,7 +73,7 @@ export default function MapEngine({
         attributionControl: false
       });
 
-      // CartoDB Dark Matter / Voyager tile layer
+      // CartoDB Voyager tile layer
       L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
         maxZoom: 19,
         subdomains: 'abcd'
@@ -51,18 +82,14 @@ export default function MapEngine({
       markersGroupRef.current = L.layerGroup().addTo(map);
       mapInstanceRef.current = map;
     }
-
-    return () => {
-      // Map cleanup if needed
-    };
   }, []);
 
-  // Update Player Position and Radar Circle
+  // Update Player Position, Buddy Avatar, and Radar Circle
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map) return;
 
-    const latlng = [playerPos.lat, playerPos.lng];
+    const latlng: [number, number] = [playerPos.lat, playerPos.lng];
 
     // Player Avatar Marker
     const playerIcon = L.divIcon({
@@ -107,6 +134,43 @@ export default function MapEngine({
       playerMarkerRef.current.setIcon(playerIcon);
     }
 
+    // Walking Buddy Companion Marker (positioned slightly to the east of player)
+    if (buddyBeast) {
+      const buddyLatLng: [number, number] = [playerPos.lat, playerPos.lng + 0.00012];
+      const buddyIcon = L.divIcon({
+        className: 'buddy-marker-container',
+        html: `
+          <div style="
+            position: relative;
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            border: 2px solid #38bdf8;
+            box-shadow: 0 0 12px rgba(56, 189, 248, 0.6);
+            background: #0f172a;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: float 2.5s ease-in-out infinite;
+          ">
+            <img src="${buddyBeast.sprite}" style="width: 30px; height: 30px; object-fit: contain;" alt="${buddyBeast.name}" />
+          </div>
+        `,
+        iconSize: [38, 38],
+        iconAnchor: [19, 19]
+      });
+
+      if (!buddyMarkerRef.current) {
+        buddyMarkerRef.current = L.marker(buddyLatLng, { icon: buddyIcon, zIndexOffset: 950 }).addTo(map);
+      } else {
+        buddyMarkerRef.current.setLatLng(buddyLatLng);
+        buddyMarkerRef.current.setIcon(buddyIcon);
+      }
+    } else if (buddyMarkerRef.current) {
+      buddyMarkerRef.current.remove();
+      buddyMarkerRef.current = null;
+    }
+
     // Interaction Radius Circle
     if (!pulseCircleRef.current) {
       pulseCircleRef.current = L.circle(latlng, {
@@ -122,7 +186,7 @@ export default function MapEngine({
       pulseCircleRef.current.setLatLng(latlng);
       pulseCircleRef.current.setRadius(interactionRadius);
     }
-  }, [playerPos, hero, driveMode, interactionRadius]);
+  }, [playerPos, hero, buddyBeast, driveMode, interactionRadius]);
 
   // Update Disturbances and Waypoints Markers
   useEffect(() => {
@@ -132,7 +196,7 @@ export default function MapEngine({
 
     group.clearLayers();
 
-    // 1. Render Waypoints (Magical Inns & Greenhouses)
+    // 1. Render Waypoints
     waypoints.forEach((wp) => {
       const dist = Math.round(getDistanceMeters(playerPos.lat, playerPos.lng, wp.lat, wp.lng));
       const inRange = dist <= interactionRadius;
@@ -161,7 +225,6 @@ export default function MapEngine({
               align-items: center;
               justify-content: center;
               font-size: 20px;
-              transition: transform 0.2s;
             ">
               ${isCooldown ? '⏳' : wp.icon}
             </div>
@@ -191,7 +254,7 @@ export default function MapEngine({
       group.addLayer(marker);
     });
 
-    // 2. Render Magical Disturbances (Beast Traces)
+    // 2. Render Magical Disturbances
     disturbances.forEach((distObj) => {
       const dist = Math.round(getDistanceMeters(playerPos.lat, playerPos.lng, distObj.lat, distObj.lng));
       const inRange = dist <= interactionRadius;
@@ -210,7 +273,6 @@ export default function MapEngine({
             justify-content: center;
             cursor: pointer;
           ">
-            <!-- Pulsing Halo -->
             <div style="
               position: absolute;
               width: 44px;
@@ -221,7 +283,6 @@ export default function MapEngine({
               animation: pulse-ring 2s infinite ease-in-out;
             "></div>
 
-            <!-- Central Beast Orb -->
             <div style="
               position: relative;
               width: 40px;
@@ -244,12 +305,11 @@ export default function MapEngine({
                       right: 1px;
                       font-size: 10px;
                       filter: drop-shadow(0 0 3px #fbbf24);
-                    ">${distObj.mark.icon}</div>`
+                    ">${distObj.mark?.icon || '✨'}</div>`
                   : ''
               }
             </div>
 
-            <!-- Distance pill -->
             <div style="
               position: absolute;
               bottom: -4px;
@@ -278,15 +338,13 @@ export default function MapEngine({
     });
   }, [disturbances, waypoints, playerPos, interactionRadius, onSelectDisturbance, onSelectWaypoint]);
 
-  // Center map on player
   const handleRecenter = () => {
     if (mapInstanceRef.current) {
       mapInstanceRef.current.setView([playerPos.lat, playerPos.lng], 17, { animate: true });
     }
   };
 
-  // Virtual Joypad Movement Step (~25m step)
-  const stepPlayer = (dLat, dLng) => {
+  const stepPlayer = (dLat: number, dLng: number) => {
     onMovePlayer(playerPos.lat + dLat, playerPos.lng + dLng);
   };
 
@@ -309,28 +367,18 @@ export default function MapEngine({
           zIndex: 400
         }}
       >
-        {/* Hero badge */}
-        <div
-          className="glass-panel"
-          style={{
-            pointerEvents: 'auto',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            padding: '6px 12px',
-            borderRadius: 'var(--radius-full)'
-          }}
-        >
-          <img src={hero.sprite} alt={hero.name} style={{ width: '28px', height: '28px', objectFit: 'contain' }} />
-          <div>
-            <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-gold)', fontFamily: 'var(--font-serif)' }}>
-              {hero.name}
-            </div>
-            <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)' }}>{hero.title.split(' ')[0]}</div>
-          </div>
+        {/* Buddy Companion Widget */}
+        <div style={{ pointerEvents: 'auto' }}>
+          <BuddyWidget
+            buddyInstance={buddyInstance}
+            buddyProgressKm={buddyProgressKm}
+            totalKmWalked={totalKmWalked}
+            totalSteps={totalSteps}
+            onOpenBuddySelect={onOpenBuddySelect}
+          />
         </div>
 
-        {/* Lure / Mode indicator */}
+        {/* Lure & Mode Badges */}
         <div style={{ display: 'flex', gap: '8px', pointerEvents: 'auto' }}>
           {activeLureTimeLeft > 0 && (
             <div
@@ -348,7 +396,7 @@ export default function MapEngine({
               }}
             >
               <Sparkles size={14} className="animate-spin-slow" />
-              <span>Lure Active ({Math.ceil(activeLureTimeLeft / 60)}m)</span>
+              <span>Lure ({Math.ceil(activeLureTimeLeft / 60)}m)</span>
             </div>
           )}
 
@@ -368,7 +416,7 @@ export default function MapEngine({
               }}
             >
               <Car size={14} />
-              <span>Drive Mode (130m)</span>
+              <span>Drive (130m)</span>
             </div>
           )}
         </div>
@@ -386,12 +434,10 @@ export default function MapEngine({
           zIndex: 400
         }}
       >
-        {/* Recenter Button */}
         <button className="btn-icon" onClick={handleRecenter} title="Center on Player">
           <Navigation size={20} />
         </button>
 
-        {/* Passenger / Drive Mode Toggle */}
         <button
           className="btn-icon"
           onClick={onToggleDriveMode}
@@ -404,7 +450,6 @@ export default function MapEngine({
           <Car size={20} />
         </button>
 
-        {/* Broomstick / Virtual Joystick Toggle */}
         <button
           className="btn-icon"
           onClick={() => setShowJoystick(!showJoystick)}
@@ -418,7 +463,7 @@ export default function MapEngine({
         </button>
       </div>
 
-      {/* Virtual Joystick / D-Pad (Toggleable for sofa testing / virtual movement) */}
+      {/* Virtual Joystick / D-Pad */}
       {showJoystick && (
         <div
           className="glass-panel"

@@ -1,12 +1,10 @@
 class SoundService {
-  constructor() {
-    this.ctx = null;
-    this.enabled = true;
-  }
+  private ctx: AudioContext | null = null;
+  public enabled: boolean = true;
 
-  init() {
+  init(): void {
     if (!this.ctx && typeof window !== 'undefined') {
-      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       if (AudioCtx) {
         this.ctx = new AudioCtx();
       }
@@ -16,11 +14,11 @@ class SoundService {
     }
   }
 
-  toggleSound(enabled) {
+  toggleSound(enabled: boolean): void {
     this.enabled = enabled;
   }
 
-  playWandCast(accuracy = 'great') {
+  playWandCast(accuracy: 'fair' | 'good' | 'great' | 'masterful' = 'great'): void {
     if (!this.enabled) return;
     this.init();
     if (!this.ctx) return;
@@ -44,13 +42,12 @@ class SoundService {
     osc.stop(t + 0.35);
   }
 
-  playSuitcaseClick() {
+  playSuitcaseClick(): void {
     if (!this.enabled) return;
     this.init();
     if (!this.ctx) return;
 
     const t = this.ctx.currentTime;
-    // Low snap
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
     osc.type = 'sawtooth';
@@ -65,7 +62,7 @@ class SoundService {
     osc.stop(t + 0.12);
   }
 
-  playCreatureCry(freq = 440) {
+  playCreatureCry(freq: number = 440): void {
     if (!this.enabled) return;
     this.init();
     if (!this.ctx) return;
@@ -89,7 +86,7 @@ class SoundService {
     osc.stop(t + 0.4);
   }
 
-  playPurr() {
+  playPurr(): void {
     if (!this.enabled) return;
     this.init();
     if (!this.ctx) return;
@@ -112,16 +109,16 @@ class SoundService {
     osc.stop(t + 0.45);
   }
 
-  playCatchSuccess() {
+  playCatchSuccess(): void {
     if (!this.enabled) return;
     this.init();
     if (!this.ctx) return;
 
     const notes = [440, 554.37, 659.25, 880]; // A Major arpeggio
     notes.forEach((freq, idx) => {
-      const t = this.ctx.currentTime + idx * 0.1;
-      const osc = this.ctx.createOscillator();
-      const gain = this.ctx.createGain();
+      const t = this.ctx!.currentTime + idx * 0.1;
+      const osc = this.ctx!.createOscillator();
+      const gain = this.ctx!.createGain();
 
       osc.type = 'triangle';
       osc.frequency.setValueAtTime(freq, t);
@@ -130,22 +127,22 @@ class SoundService {
       gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
 
       osc.connect(gain);
-      gain.connect(this.ctx.destination);
+      gain.connect(this.ctx!.destination);
       osc.start(t);
       osc.stop(t + 0.35);
     });
   }
 
-  playMarkReveal() {
+  playMarkReveal(): void {
     if (!this.enabled) return;
     this.init();
     if (!this.ctx) return;
 
-    const notes = [523.25, 659.25, 783.99, 1046.50, 1318.51]; // C major 7th triumph
+    const notes = [523.25, 659.25, 783.99, 1046.50, 1318.51];
     notes.forEach((freq, idx) => {
-      const t = this.ctx.currentTime + idx * 0.08;
-      const osc = this.ctx.createOscillator();
-      const gain = this.ctx.createGain();
+      const t = this.ctx!.currentTime + idx * 0.08;
+      const osc = this.ctx!.createOscillator();
+      const gain = this.ctx!.createGain();
 
       osc.type = 'sine';
       osc.frequency.setValueAtTime(freq, t);
@@ -154,22 +151,22 @@ class SoundService {
       gain.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
 
       osc.connect(gain);
-      gain.connect(this.ctx.destination);
+      gain.connect(this.ctx!.destination);
       osc.start(t);
       osc.stop(t + 0.5);
     });
   }
 
-  playSpinChime() {
+  playSpinChime(): void {
     if (!this.enabled) return;
     this.init();
     if (!this.ctx) return;
 
     const notes = [659.25, 830.61, 987.77, 1318.51];
     notes.forEach((freq, idx) => {
-      const t = this.ctx.currentTime + idx * 0.06;
-      const osc = this.ctx.createOscillator();
-      const gain = this.ctx.createGain();
+      const t = this.ctx!.currentTime + idx * 0.06;
+      const osc = this.ctx!.createOscillator();
+      const gain = this.ctx!.createGain();
 
       osc.type = 'triangle';
       osc.frequency.setValueAtTime(freq, t);
@@ -178,7 +175,7 @@ class SoundService {
       gain.gain.exponentialRampToValueAtTime(0.001, t + 0.28);
 
       osc.connect(gain);
-      gain.connect(this.ctx.destination);
+      gain.connect(this.ctx!.destination);
       osc.start(t);
       osc.stop(t + 0.28);
     });

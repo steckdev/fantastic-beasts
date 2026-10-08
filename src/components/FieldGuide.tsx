@@ -1,19 +1,26 @@
 import React, { useState } from 'react';
-import { BookOpen, Shield, Sparkles, Filter, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { BEASTS } from '../data/beastsData';
+import { Beast, MinistryClassification } from '../types';
 
-export default function FieldGuide({ caughtBeasts, seenBeasts, onClose }) {
-  const [selectedClass, setSelectedClass] = useState('ALL');
-  const [inspectBeast, setInspectBeast] = useState(null);
+interface FieldGuideProps {
+  caughtBeasts: Record<string, number>;
+  seenBeasts: Record<string, number>;
+  onClose: () => void;
+}
 
-  const classes = ['ALL', 'XX', 'XXX', 'XXXX', 'XXXXX'];
+export default function FieldGuide({ caughtBeasts, seenBeasts, onClose }: FieldGuideProps) {
+  const [selectedClass, setSelectedClass] = useState<string>('ALL');
+  const [inspectBeast, setInspectBeast] = useState<Beast | null>(null);
+
+  const classes: ('ALL' | MinistryClassification)[] = ['ALL', 'XX', 'XXX', 'XXXX', 'XXXXX'];
 
   const filteredBeasts = BEASTS.filter((b) => {
     if (selectedClass === 'ALL') return true;
     return b.classification === selectedClass;
   });
 
-  const totalCaughtCount = Object.keys(caughtBeasts).filter((k) => caughtBeasts[k] > 0).length;
+  const totalCaughtCount = Object.keys(caughtBeasts).filter((k) => (caughtBeasts[k] || 0) > 0).length;
 
   return (
     <div
@@ -58,25 +65,13 @@ export default function FieldGuide({ caughtBeasts, seenBeasts, onClose }) {
       </div>
 
       {/* Ministry Classification Filter Tabs */}
-      <div
-        style={{
-          padding: '12px 16px',
-          display: 'flex',
-          gap: '8px',
-          overflowX: 'auto',
-          whiteSpace: 'nowrap'
-        }}
-      >
+      <div style={{ padding: '12px 16px', display: 'flex', gap: '8px', overflowX: 'auto', whiteSpace: 'nowrap' }}>
         {classes.map((cls) => (
           <button
             key={cls}
             onClick={() => setSelectedClass(cls)}
             className={selectedClass === cls ? 'btn-magical' : 'btn-secondary'}
-            style={{
-              padding: '6px 14px',
-              fontSize: '0.78rem',
-              borderRadius: 'var(--radius-full)'
-            }}
+            style={{ padding: '6px 14px', fontSize: '0.78rem', borderRadius: 'var(--radius-full)' }}
           >
             {cls === 'ALL' ? 'All Classes' : `Class ${cls}`}
           </button>
@@ -113,7 +108,6 @@ export default function FieldGuide({ caughtBeasts, seenBeasts, onClose }) {
                 border: caught ? '1px solid var(--border-gold)' : '1px solid rgba(255,255,255,0.08)'
               }}
             >
-              {/* Beast Sprite / Silhouette */}
               <div style={{ position: 'relative', width: '70px', height: '70px' }}>
                 <img
                   src={b.sprite}
@@ -127,7 +121,6 @@ export default function FieldGuide({ caughtBeasts, seenBeasts, onClose }) {
                 />
               </div>
 
-              {/* Beast Name */}
               <div
                 className="font-cinzel"
                 style={{
@@ -142,7 +135,6 @@ export default function FieldGuide({ caughtBeasts, seenBeasts, onClose }) {
                 {caught || seen ? b.name : '???'}
               </div>
 
-              {/* Class indicator */}
               <div style={{ fontSize: '0.62rem', color: '#64748b', marginTop: '2px' }}>
                 Class {b.classification}
               </div>

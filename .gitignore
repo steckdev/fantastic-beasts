@@ -23,3 +23,7 @@ dist-ssr
 *.sln
 *.sw?
 thumb_third.png
+
+# Local Netlify folder
+.netlify
+*.tsbuildinfo

@@ -1,10 +1,17 @@
 import React from 'react';
-import { Scroll, Award, CheckCircle, Gift, X } from 'lucide-react';
+import { Scroll, CheckCircle, Gift, X, Calendar } from 'lucide-react';
 import { sounds } from '../services/soundService';
 import { ITEMS } from '../data/itemsData';
+import { Quest } from '../types';
 
-export default function QuestsModal({ quests, onClaimReward, onClose }) {
-  const handleClaim = (quest) => {
+interface QuestsModalProps {
+  quests: Quest[];
+  onClaimReward: (questId: string, reward: Record<string, number>) => void;
+  onClose: () => void;
+}
+
+export default function QuestsModal({ quests, onClaimReward, onClose }: QuestsModalProps) {
+  const handleClaim = (quest: Quest) => {
     sounds.playCatchSuccess();
     onClaimReward(quest.id, quest.reward);
   };
@@ -31,7 +38,7 @@ export default function QuestsModal({ quests, onClaimReward, onClose }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Scroll size={22} color="#fbbf24" />
             <h2 className="font-cinzel title-glow" style={{ fontSize: '1.25rem', color: '#fef08a', fontWeight: 800 }}>
-              MACUSA Field Tasks
+              Daily MACUSA Tasks
             </h2>
           </div>
           <button className="btn-icon" style={{ width: '34px', height: '34px' }} onClick={onClose}>
@@ -39,9 +46,10 @@ export default function QuestsModal({ quests, onClaimReward, onClose }) {
           </button>
         </div>
 
-        <p style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
-          Official assignments issued to preserve the Statute of Secrecy. Complete them to earn wizarding rewards!
-        </p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', color: '#38bdf8' }}>
+          <Calendar size={14} />
+          <span>Refreshes daily at midnight • Track progress across town</span>
+        </div>
 
         {/* Quests List */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>

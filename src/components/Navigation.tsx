@@ -1,7 +1,14 @@
 import React from 'react';
 import { Map, BookOpen, Scroll, Settings } from 'lucide-react';
 
-export default function Navigation({ currentTab, onSelectTab, unreadTasksCount, suitcaseCount }) {
+interface NavigationProps {
+  currentTab: string;
+  onSelectTab: (tab: string) => void;
+  unreadTasksCount: number;
+  suitcaseCount: number;
+}
+
+export default function Navigation({ currentTab, onSelectTab, unreadTasksCount, suitcaseCount }: NavigationProps) {
   const tabs = [
     { id: 'map', label: 'Map', icon: <Map size={20} /> },
     {
@@ -72,7 +79,6 @@ export default function Navigation({ currentTab, onSelectTab, unreadTasksCount, 
               {t.label}
             </span>
 
-            {/* Notification Badge */}
             {t.badge && (
               <span
                 style={{

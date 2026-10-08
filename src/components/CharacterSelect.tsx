@@ -1,14 +1,20 @@
 import React, { useState } from 'react';
 import { HEROES } from '../data/heroesData';
-import { Sparkles, Check, ChevronRight } from 'lucide-react';
+import { Sparkles, ChevronRight } from 'lucide-react';
 import { sounds } from '../services/soundService';
 
-export default function CharacterSelect({ currentHeroId, onConfirmHero, isFirstTime = false }) {
-  const [selectedId, setSelectedId] = useState(currentHeroId || 'newt_scamander');
+interface CharacterSelectProps {
+  currentHeroId: string;
+  onConfirmHero: (heroId: string) => void;
+  isFirstTime?: boolean;
+}
+
+export default function CharacterSelect({ currentHeroId, onConfirmHero, isFirstTime = false }: CharacterSelectProps) {
+  const [selectedId, setSelectedId] = useState<string>(currentHeroId || 'newt_scamander');
 
   const selectedHero = HEROES.find((h) => h.id === selectedId) || HEROES[0];
 
-  const handleChoose = (id) => {
+  const handleChoose = (id: string) => {
     setSelectedId(id);
     sounds.playWandCast('good');
   };
@@ -132,7 +138,7 @@ export default function CharacterSelect({ currentHeroId, onConfirmHero, isFirstT
           </div>
         </div>
 
-        {/* Confirm / Embark Button */}
+        {/* Confirm Button */}
         <button className="btn-magical" style={{ width: '100%', padding: '14px' }} onClick={handleStartGame}>
           <span>Embark as {selectedHero.name}</span>
           <ChevronRight size={18} />

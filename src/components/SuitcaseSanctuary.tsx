@@ -1,39 +1,54 @@
 import React, { useState } from 'react';
 import confetti from 'canvas-confetti';
-import { Heart, Sparkles, Edit2, Check, ArrowLeft, Award, Utensils, Smile } from 'lucide-react';
+import { Heart, Edit2, Check, ArrowLeft, Utensils, Smile, Star, Footprints } from 'lucide-react';
 import { BEASTS } from '../data/beastsData';
 import { ITEMS } from '../data/itemsData';
 import { sounds } from '../services/soundService';
+import { CapturedBeast, Hero, Beast } from '../types';
+
+interface SuitcaseSanctuaryProps {
+  suitcase: CapturedBeast[];
+  inventory: Record<string, number>;
+  hero: Hero;
+  buddyInstanceId: string | null;
+  onSetBuddy: (instanceId: string) => void;
+  onFeedBeast: (instanceId: string, treatKey: string, xpGain: number) => void;
+  onPetBeast: (instanceId: string) => void;
+  onRenameBeast: (instanceId: string, newName: string) => void;
+  onClose: () => void;
+}
 
 export default function SuitcaseSanctuary({
   suitcase,
   inventory,
   hero,
+  buddyInstanceId,
+  onSetBuddy,
   onFeedBeast,
   onPetBeast,
   onRenameBeast,
   onClose
-}) {
-  const [selectedHabitat, setSelectedHabitat] = useState('All');
-  const [activeBeast, setActiveBeast] = useState(null);
-  const [isEditingName, setIsEditingName] = useState(false);
-  const [tempName, setTempName] = useState('');
-  const [pettingFeedback, setPettingFeedback] = useState(false);
+}: SuitcaseSanctuaryProps) {
+  const [selectedHabitat, setSelectedHabitat] = useState<string>('All');
+  const [activeBeast, setActiveBeast] = useState<{ beastObj: CapturedBeast; beast: Beast } | null>(null);
+  const [isEditingName, setIsEditingName] = useState<boolean>(false);
+  const [tempName, setTempName] = useState<string>('');
+  const [pettingFeedback, setPettingFeedback] = useState<boolean>(false);
 
   const habitats = ['All', 'Sunlit Plains', 'Enchanted Forest', 'Mystic Marsh', 'Sky Heights', 'Ancient Ruins'];
 
-  // Filter beasts by habitat
   const filteredBeasts = suitcase.filter((b) => {
     if (selectedHabitat === 'All') return true;
     const beastData = BEASTS.find((bd) => bd.id === b.beastId);
     return beastData && beastData.habitat === selectedHabitat;
   });
 
-  const handleSelectBeast = (beastObj) => {
-    setActiveBeast(beastObj);
+  const handleSelectBeast = (beastObj: CapturedBeast) => {
+    const beastData = BEASTS.find((bd) => bd.id === beastObj.beastId) || BEASTS[0];
+    setActiveBeast({ beastObj, beast: beastData });
     setIsEditingName(false);
-    setTempName(beastObj.nickname || beastObj.beast?.name);
-    sounds.playCreatureCry(beastObj.beast?.cryFreq || 440);
+    setTempName(beastObj.nickname || beastData.name);
+    sounds.playCreatureCry(beastData.cryFreq || 440);
   };
 
   const handlePet = () => {
@@ -49,20 +64,20 @@ export default function SuitcaseSanctuary({
       colors: ['#f43f5e', '#ec4899', '#fbbf24']
     });
 
-    onPetBeast(activeBeast.instanceId);
+    onPetBeast(activeBeast.beastObj.instanceId);
   };
 
-  const handleFeed = (treatKey) => {
+  const handleFeed = (treatKey: string) => {
     if (!activeBeast) return;
     const treat = ITEMS[treatKey];
-    if (!treat || inventory[treatKey] <= 0) return;
+    if (!treat || (inventory[treatKey] || 0) <= 0) return;
 
     sounds.playPurr();
-    sounds.playCreatureCry((activeBeast.beast?.cryFreq || 440) * 1.05);
+    sounds.playCreatureCry((activeBeast.beast.cryFreq || 440) * 1.05);
 
-    const isFavorite = activeBeast.beast?.favoriteTreat === treat.name;
+    const isFavorite = activeBeast.beast.favoriteTreat === treat.name;
     const multiplier = (isFavorite ? 1.8 : 1.0) * (hero.bonusTreatEffect || 1.0);
-    const xpGain = Math.round(treat.bondXP * multiplier);
+    const xpGain = Math.round((treat.bondXP || 30) * multiplier);
 
     confetti({
       particleCount: 25,
@@ -71,14 +86,16 @@ export default function SuitcaseSanctuary({
       colors: ['#34d399', '#fbbf24', '#f43f5e']
     });
 
-    onFeedBeast(activeBeast.instanceId, treatKey, xpGain);
+    onFeedBeast(activeBeast.beastObj.instanceId, treatKey, xpGain);
   };
 
   const handleSaveName = () => {
     if (!activeBeast || !tempName.trim()) return;
-    onRenameBeast(activeBeast.instanceId, tempName.trim());
+    onRenameBeast(activeBeast.beastObj.instanceId, tempName.trim());
     setIsEditingName(false);
   };
+
+  const isCurrentBuddy = activeBeast && buddyInstanceId === activeBeast.beastObj.instanceId;
 
   return (
     <div
@@ -111,7 +128,7 @@ export default function SuitcaseSanctuary({
               <ArrowLeft size={18} />
             </button>
           ) : (
-            <span style={{ fontSize: '24px' }}>🧳</span>
+            <img src="/items/briefcase_closed.png" alt="Suitcase" style={{ width: '36px', height: '36px', objectFit: 'contain' }} />
           )}
           <div>
             <h1 className="font-cinzel title-glow" style={{ fontSize: '1.2rem', color: '#fef08a', fontWeight: 800 }}>
@@ -130,28 +147,15 @@ export default function SuitcaseSanctuary({
 
       {/* Main Body */}
       {!activeBeast ? (
-        /* Sanctuary Beast Grid View */
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           {/* Habitat Filter Pills */}
-          <div
-            style={{
-              padding: '12px 16px',
-              display: 'flex',
-              gap: '8px',
-              overflowX: 'auto',
-              whiteSpace: 'nowrap'
-            }}
-          >
+          <div style={{ padding: '12px 16px', display: 'flex', gap: '8px', overflowX: 'auto', whiteSpace: 'nowrap' }}>
             {habitats.map((hab) => (
               <button
                 key={hab}
                 onClick={() => setSelectedHabitat(hab)}
                 className={selectedHabitat === hab ? 'btn-magical' : 'btn-secondary'}
-                style={{
-                  padding: '6px 14px',
-                  fontSize: '0.78rem',
-                  borderRadius: 'var(--radius-full)'
-                }}
+                style={{ padding: '6px 14px', fontSize: '0.78rem', borderRadius: 'var(--radius-full)' }}
               >
                 {hab}
               </button>
@@ -170,14 +174,7 @@ export default function SuitcaseSanctuary({
             }}
           >
             {filteredBeasts.length === 0 ? (
-              <div
-                style={{
-                  gridColumn: '1 / -1',
-                  textAlign: 'center',
-                  padding: '60px 20px',
-                  color: '#94a3b8'
-                }}
-              >
+              <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '60px 20px', color: '#94a3b8' }}>
                 <div style={{ fontSize: '48px', marginBottom: '12px' }}>🦉</div>
                 <div className="font-cinzel" style={{ fontSize: '1.1rem', color: '#fde047', fontWeight: 700 }}>
                   No Beasts In This Habitat Yet
@@ -188,12 +185,13 @@ export default function SuitcaseSanctuary({
               </div>
             ) : (
               filteredBeasts.map((b) => {
-                const beastData = BEASTS.find((bd) => bd.id === b.beastId) || b.beast;
+                const beastData = BEASTS.find((bd) => bd.id === b.beastId) || BEASTS[0];
                 const hasMark = !!b.mark;
+                const isBuddy = buddyInstanceId === b.instanceId;
                 return (
                   <div
                     key={b.instanceId}
-                    onClick={() => handleSelectBeast({ ...b, beast: beastData })}
+                    onClick={() => handleSelectBeast(b)}
                     className="glass-card"
                     style={{
                       padding: '12px',
@@ -201,29 +199,23 @@ export default function SuitcaseSanctuary({
                       flexDirection: 'column',
                       alignItems: 'center',
                       cursor: 'pointer',
-                      border: hasMark ? `1.5px solid ${b.mark.color}` : '1px solid var(--border-gold)',
-                      boxShadow: hasMark ? `0 0 14px ${b.mark.glow}` : 'none'
+                      border: isBuddy ? '2px solid #38bdf8' : hasMark ? `1.5px solid ${b.mark?.color}` : '1px solid var(--border-gold)',
+                      boxShadow: isBuddy ? '0 0 16px rgba(56, 189, 248, 0.5)' : hasMark ? `0 0 14px ${b.mark?.glow}` : 'none'
                     }}
                   >
-                    {/* Mark indicator top right */}
-                    {hasMark && (
-                      <div
-                        style={{
-                          alignSelf: 'flex-end',
-                          fontSize: '0.72rem',
-                          color: b.mark.color,
-                          fontWeight: 800,
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '2px'
-                        }}
-                      >
-                        <span>{b.mark.icon}</span>
-                        <span>{b.mark.rarity}</span>
-                      </div>
-                    )}
+                    <div style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      {isBuddy ? (
+                        <span style={{ fontSize: '0.68rem', color: '#38bdf8', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '2px' }}>
+                          <Footprints size={12} /> BUDDY
+                        </span>
+                      ) : <span />}
+                      {hasMark && (
+                        <div style={{ fontSize: '0.72rem', color: b.mark?.color, fontWeight: 800 }}>
+                          <span>{b.mark?.icon}</span>
+                        </div>
+                      )}
+                    </div>
 
-                    {/* Beast Sprite */}
                     <img
                       src={beastData.sprite}
                       alt={beastData.name}
@@ -232,19 +224,14 @@ export default function SuitcaseSanctuary({
                         height: '90px',
                         objectFit: 'contain',
                         margin: '6px 0',
-                        filter: hasMark ? `drop-shadow(0 0 10px ${b.mark.color})` : 'none'
+                        filter: hasMark ? `drop-shadow(0 0 10px ${b.mark?.color})` : 'none'
                       }}
                     />
 
-                    {/* Name & Title */}
-                    <div
-                      className="font-cinzel"
-                      style={{ fontSize: '0.88rem', fontWeight: 700, color: '#fef08a', textAlign: 'center' }}
-                    >
+                    <div className="font-cinzel" style={{ fontSize: '0.88rem', fontWeight: 700, color: '#fef08a', textAlign: 'center' }}>
                       {b.nickname || beastData.name}
                     </div>
 
-                    {/* CP & Bond Level */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
                       <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#38bdf8' }}>CP {b.cp}</span>
                       <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#ec4899', display: 'flex', alignItems: 'center', gap: '2px' }}>
@@ -297,45 +284,54 @@ export default function SuitcaseSanctuary({
             ) : (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
                 <h2 className="font-cinzel title-glow" style={{ fontSize: '1.4rem', color: '#fef08a', fontWeight: 800 }}>
-                  {activeBeast.nickname || activeBeast.beast.name}
+                  {activeBeast.beastObj.nickname || activeBeast.beast.name}
                 </h2>
-                <button
-                  onClick={() => setIsEditingName(true)}
-                  style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer' }}
-                >
+                <button onClick={() => setIsEditingName(true)} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer' }}>
                   <Edit2 size={16} />
                 </button>
               </div>
             )}
 
+            {/* Set as Walking Buddy button */}
+            <div style={{ marginTop: '6px' }}>
+              <button
+                className={isCurrentBuddy ? 'btn-magical' : 'btn-secondary'}
+                onClick={() => onSetBuddy(activeBeast.beastObj.instanceId)}
+                style={{ padding: '5px 14px', fontSize: '0.76rem', borderRadius: 'var(--radius-full)' }}
+              >
+                <Footprints size={14} style={{ marginRight: '4px' }} />
+                <span>{isCurrentBuddy ? 'Active Buddy Companion' : 'Set as Walking Buddy'}</span>
+              </button>
+            </div>
+
             {/* Mark Title if present */}
-            {activeBeast.mark && (
+            {activeBeast.beastObj.mark && (
               <div
                 className="mark-badge"
                 style={{
                   marginTop: '8px',
-                  borderColor: activeBeast.mark.color,
-                  color: activeBeast.mark.color,
-                  boxShadow: `0 0 12px ${activeBeast.mark.glow}`
+                  borderColor: activeBeast.beastObj.mark.color,
+                  color: activeBeast.beastObj.mark.color,
+                  boxShadow: `0 0 12px ${activeBeast.beastObj.mark.glow}`
                 }}
               >
-                <span>{activeBeast.mark.icon}</span>
-                <span>Title: {activeBeast.mark.title}</span>
+                <span>{activeBeast.beastObj.mark.icon}</span>
+                <span>Title: {activeBeast.beastObj.mark.title}</span>
               </div>
             )}
 
-            {/* Bond Level Status Bar */}
+            {/* Bond Status Bar */}
             <div style={{ maxWidth: '300px', margin: '12px auto 0' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', marginBottom: '4px' }}>
                 <span style={{ color: '#f43f5e', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <Heart size={14} fill="#f43f5e" /> Bond Level {activeBeast.bondLevel || 1} / 10
+                  <Heart size={14} fill="#f43f5e" /> Bond Level {activeBeast.beastObj.bondLevel || 1} / 10
                 </span>
-                <span style={{ color: '#94a3b8' }}>{activeBeast.bondXP || 0} / 100 XP</span>
+                <span style={{ color: '#94a3b8' }}>{activeBeast.beastObj.bondXP || 0} / 100 XP</span>
               </div>
               <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', overflow: 'hidden' }}>
                 <div
                   style={{
-                    width: `${Math.min(100, activeBeast.bondXP || 0)}%`,
+                    width: `${Math.min(100, activeBeast.beastObj.bondXP || 0)}%`,
                     height: '100%',
                     background: 'linear-gradient(90deg, #ec4899, #f43f5e)',
                     transition: 'width 0.4s ease'
@@ -345,7 +341,7 @@ export default function SuitcaseSanctuary({
             </div>
           </div>
 
-          {/* Central Interactive Sprite (Tap / stroke to Pet!) */}
+          {/* Central Interactive Sprite */}
           <div
             onClick={handlePet}
             style={{
@@ -373,14 +369,13 @@ export default function SuitcaseSanctuary({
                   width: '220px',
                   height: '220px',
                   objectFit: 'contain',
-                  filter: activeBeast.mark
-                    ? `drop-shadow(0 0 16px ${activeBeast.mark.color})`
+                  filter: activeBeast.beastObj.mark
+                    ? `drop-shadow(0 0 16px ${activeBeast.beastObj.mark.color})`
                     : 'drop-shadow(0 12px 24px rgba(0,0,0,0.6))'
                 }}
               />
             </div>
 
-            {/* Petting prompt */}
             <div
               style={{
                 position: 'absolute',

@@ -1,4 +1,6 @@
-export const BEASTS = [
+import { Beast } from '../types';
+
+export const BEASTS: Beast[] = [
   // Sheet 1 Beasts
   {
     id: 'niffler',
@@ -46,7 +48,7 @@ export const BEASTS = [
     minCP: 60,
     maxCP: 380,
     habitat: 'Sunlit Plains',
-    favoriteTreat: 'Butterbeer Brioche',
+    favoriteTreat: 'Jacob\'s Sweet Brioche',
     sprite: '/sprites/beasts/pygmy_puff.png',
     lore: 'Spherical puff of vibrant pink fluff that hums soothing melodies when cuddled. Extremely docile companion.',
     cryFreq: 750
@@ -63,7 +65,7 @@ export const BEASTS = [
     minCP: 350,
     maxCP: 1420,
     habitat: 'Ancient Ruins',
-    favoriteTreat: 'Moon Pellets',
+    favoriteTreat: 'Silver Moon Pellets',
     sprite: '/sprites/beasts/demiguise.png',
     lore: 'Peaceful herbivore capable of turning invisible and foreseeing the immediate future. Silvery hair is woven into Invisibility Cloaks.',
     cryFreq: 320
@@ -80,7 +82,7 @@ export const BEASTS = [
     minCP: 110,
     maxCP: 620,
     habitat: 'Sunlit Plains',
-    favoriteTreat: 'Moon Pellets',
+    favoriteTreat: 'Silver Moon Pellets',
     sprite: '/sprites/beasts/mooncalf.png',
     lore: 'Shy creature with enormous soulful eyes. Under the light of the full moon, it performs mesmerizing circular dances.',
     cryFreq: 440
@@ -131,7 +133,7 @@ export const BEASTS = [
     minCP: 650,
     maxCP: 2450,
     habitat: 'Sky Heights',
-    favoriteTreat: 'Dragon Pepper Fruit',
+    favoriteTreat: 'Dragon Fire Pepper',
     sprite: '/sprites/beasts/thunderbird.png',
     lore: 'Noble multi-winged storm bird native to Arizona. Senses supernatural peril and summons lightning storms as it flies.',
     cryFreq: 260
@@ -182,7 +184,7 @@ export const BEASTS = [
     minCP: 95,
     maxCP: 540,
     habitat: 'Sunlit Plains',
-    favoriteTreat: 'Butterbeer Brioche',
+    favoriteTreat: 'Jacob\'s Sweet Brioche',
     sprite: '/sprites/beasts/diricawl.png',
     lore: 'Plump flightless bird celebrated by No-Majs as the extinct Dodo. Escapes danger by vanishing in an instant flash of plumage.',
     cryFreq: 520
@@ -269,7 +271,7 @@ export const BEASTS = [
     minCP: 750,
     maxCP: 2600,
     habitat: 'Ancient Ruins',
-    favoriteTreat: 'Dragon Pepper Fruit',
+    favoriteTreat: 'Dragon Fire Pepper',
     sprite: '/sprites/beasts/nundu.png',
     lore: 'Considered by many the most dangerous beast in existence. Moves silently and exhales a virulent disease capable of wiping out entire cities.',
     cryFreq: 160
@@ -347,14 +349,14 @@ export const BEASTS = [
     name: 'Chimaera',
     species: 'Hybrid Beast',
     classification: 'XXXXX',
-    type: 'Chimera',
+    type: 'Beast',
     dangerRating: 5,
     baseCatchRate: 0.26,
     fleeRate: 0.20,
     minCP: 680,
     maxCP: 2490,
     habitat: 'Ancient Ruins',
-    favoriteTreat: 'Dragon Pepper Fruit',
+    favoriteTreat: 'Dragon Fire Pepper',
     sprite: '/sprites/beasts/chimaera.png',
     lore: 'Rare Greek monster with lion head, goat body, and serpent tail. Vicious and bloodthirsty; extremely hazardous to subdue.',
     cryFreq: 190
@@ -417,14 +419,14 @@ export const BEASTS = [
     name: 'Qilin',
     species: 'Sacred Soul-Reader',
     classification: 'XXXXX',
-    type: 'Chimera',
+    type: 'Beast',
     dangerRating: 4,
     baseCatchRate: 0.28,
     fleeRate: 0.17,
     minCP: 690,
     maxCP: 2550,
     habitat: 'Ancient Ruins',
-    favoriteTreat: 'Moon Pellets',
+    favoriteTreat: 'Silver Moon Pellets',
     sprite: '/sprites/beasts/qilin.png',
     lore: 'Sacred dragon-deer capable of seeing directly into human souls. In ancient wizarding tradition, bows only before the pure of heart.',
     cryFreq: 380
@@ -458,7 +460,7 @@ export const BEASTS = [
     minCP: 160,
     maxCP: 740,
     habitat: 'Sunlit Plains',
-    favoriteTreat: 'Butterbeer Brioche',
+    favoriteTreat: 'Jacob\'s Sweet Brioche',
     sprite: '/sprites/beasts/crup.png',
     lore: 'Wizard-bred terrier with a distinctive forked tail. Intensely loyal to witches and wizards, but notoriously hostile toward No-Majs.',
     cryFreq: 510
@@ -526,7 +528,7 @@ export const BEASTS = [
     minCP: 520,
     maxCP: 1950,
     habitat: 'Sunlit Plains',
-    favoriteTreat: 'Dragon Pepper Fruit',
+    favoriteTreat: 'Dragon Fire Pepper',
     sprite: '/sprites/beasts/erumpent.png',
     lore: 'Massive African beast with thick hide impenetrable to most spells. Its glowing horn pierces metal and injects exploding fluid.',
     cryFreq: 190
@@ -560,7 +562,7 @@ export const BEASTS = [
     minCP: 130,
     maxCP: 650,
     habitat: 'Sunlit Plains',
-    favoriteTreat: 'Moon Pellets',
+    favoriteTreat: 'Silver Moon Pellets',
     sprite: '/sprites/beasts/jackalope.png',
     lore: 'Fleet-footed enchanted hare with a single spiraling horn. Burrows through dense sand and dirt with astonishing speed.',
     cryFreq: 680
@@ -570,7 +572,7 @@ export const BEASTS = [
     name: 'Wolpertinger',
     species: 'Winged Antlered Hare',
     classification: 'XXX',
-    type: 'Chimera',
+    type: 'Beast',
     dangerRating: 2,
     baseCatchRate: 0.65,
     fleeRate: 0.13,

@@ -1,4 +1,6 @@
-export const ITEMS = {
+import { Item } from '../types';
+
+export const ITEMS: Record<string, Item> = {
   spell_energy: {
     id: 'spell_energy',
     name: 'Spell Energy',

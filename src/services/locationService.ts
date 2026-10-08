@@ -1,8 +1,9 @@
 import { BEASTS } from '../data/beastsData';
 import { rollMark } from '../data/marksData';
+import { Disturbance, Waypoint } from '../types';
 
 // Calculate distance in meters between two lat/lng coordinates (Haversine)
-export function getDistanceMeters(lat1, lon1, lat2, lon2) {
+export function getDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371e3; // metres
   const phi1 = (lat1 * Math.PI) / 180;
   const phi2 = (lat2 * Math.PI) / 180;
@@ -18,8 +19,13 @@ export function getDistanceMeters(lat1, lon1, lat2, lon2) {
 }
 
 // Generate procedural disturbances around coordinates
-export function generateDisturbances(centerLat, centerLng, count = 7, bonusMarkMultiplier = 1.0) {
-  const disturbances = [];
+export function generateDisturbances(
+  centerLat: number,
+  centerLng: number,
+  count: number = 7,
+  bonusMarkMultiplier: number = 1.0
+): Disturbance[] {
+  const disturbances: Disturbance[] = [];
   const traceCategories = [
     { type: 'magizoology', color: '#fbbf24', label: 'Magizoological Trace' },
     { type: 'wonders', color: '#38bdf8', label: 'Mystic Anomaly' },
@@ -37,7 +43,7 @@ export function generateDisturbances(centerLat, centerLng, count = 7, bonusMarkM
     const beast = BEASTS[Math.floor(Math.random() * BEASTS.length)];
     const cat = traceCategories[Math.floor(Math.random() * traceCategories.length)];
     const mark = rollMark(bonusMarkMultiplier);
-    
+
     // Creature Power (CP) calculation with mark bonus
     let cp = Math.floor(beast.minCP + Math.random() * (beast.maxCP - beast.minCP));
     if (mark) cp = Math.floor(cp * 1.25);
@@ -61,7 +67,7 @@ export function generateDisturbances(centerLat, centerLng, count = 7, bonusMarkM
 }
 
 // Procedural Waypoints (Magical Inns & Greenhouses) around player
-export function generateWaypoints(centerLat, centerLng, count = 5) {
+export function generateWaypoints(centerLat: number, centerLng: number, count: number = 5): Waypoint[] {
   const innNames = [
     'The Leaky Cauldron Inn',
     'The Hog\'s Head Outpost',
@@ -74,7 +80,7 @@ export function generateWaypoints(centerLat, centerLng, count = 5) {
     'Magical Menagerie Supply'
   ];
 
-  const waypoints = [];
+  const waypoints: Waypoint[] = [];
   for (let i = 0; i < count; i++) {
     const angle = (i / count) * Math.PI * 2 + (Math.random() * 0.4 - 0.2);
     const distMeters = 50 + Math.random() * 180;
@@ -98,7 +104,7 @@ export function generateWaypoints(centerLat, centerLng, count = 5) {
 }
 
 // Try to query real OpenStreetMap Overpass POIs if network is available
-export async function fetchNearbyRealPOIs(lat, lng) {
+export async function fetchNearbyRealPOIs(lat: number, lng: number): Promise<Waypoint[] | null> {
   try {
     const query = `
       [out:json][timeout:4];
@@ -114,9 +120,10 @@ export async function fetchNearbyRealPOIs(lat, lng) {
     const data = await res.json();
     if (!data || !data.elements || data.elements.length === 0) return null;
 
-    return data.elements.map((el, idx) => {
-      const name = el.tags.name || el.tags.amenity || 'Magical Waypoint';
-      const isGreenhouse = !!(el.tags.leisure || el.tags.park || el.tags.fountain);
+    return data.elements.map((el: { id: number; lat: number; lon: number; tags?: Record<string, string> }, idx: number) => {
+      const tags = el.tags || {};
+      const name = tags.name || tags.amenity || 'Magical Waypoint';
+      const isGreenhouse = !!(tags.leisure || tags.park || tags.fountain);
       return {
         id: `osm_poi_${el.id}`,
         name: `${name} (${isGreenhouse ? 'Greenhouse' : 'Wizarding Inn'})`,
@@ -129,6 +136,6 @@ export async function fetchNearbyRealPOIs(lat, lng) {
       };
     });
   } catch {
-    return null; // Gracefully fallback to procedural
+    return null;
   }
 }

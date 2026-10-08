@@ -1,8 +1,18 @@
 import React, { useState, useRef, useEffect } from 'react';
 import confetti from 'canvas-confetti';
-import { Sparkles, Wand2, X, AlertTriangle, Shield, CheckCircle, Heart } from 'lucide-react';
+import { Wand2, X, Heart } from 'lucide-react';
 import { sounds } from '../services/soundService';
 import { ITEMS } from '../data/itemsData';
+import { Disturbance, Hero, Mark, Item } from '../types';
+
+interface EncounterModalProps {
+  disturbance: Disturbance;
+  hero: Hero;
+  inventory: Record<string, number>;
+  onConsumeItem: (itemKey: string, amount?: number) => void;
+  onCaptureSuccess: (data: { beastId: string; cp: number; mark: Mark | null }) => void;
+  onClose: () => void;
+}
 
 export default function EncounterModal({
   disturbance,
@@ -11,22 +21,22 @@ export default function EncounterModal({
   onConsumeItem,
   onCaptureSuccess,
   onClose
-}) {
+}: EncounterModalProps) {
   const { beast, cp, mark } = disturbance;
-  const [phase, setPhase] = useState('encounter'); // 'encounter' | 'casting' | 'capturing' | 'caught' | 'fled'
-  const [wobbleCount, setWobbleCount] = useState(0);
-  const [selectedTreat, setSelectedTreat] = useState(null);
-  const [treatBonus, setTreatBonus] = useState(0);
-  const [showTreatDrawer, setShowTreatDrawer] = useState(false);
-  const [castAccuracy, setCastAccuracy] = useState(null);
-  const [isDrawing, setIsDrawing] = useState(false);
-  const canvasRef = useRef(null);
-  const strokePointsRef = useRef([]);
+  const [phase, setPhase] = useState<'encounter' | 'casting' | 'capturing' | 'caught' | 'fled'>('encounter');
+  const [wobbleCount, setWobbleCount] = useState<number>(0);
+  const [treatBonus, setTreatBonus] = useState<number>(0);
+  const [showTreatDrawer, setShowTreatDrawer] = useState<boolean>(false);
+  const [castAccuracy, setCastAccuracy] = useState<'fair' | 'good' | 'great' | 'masterful' | null>(null);
+  const [isDrawing, setIsDrawing] = useState<boolean>(false);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const strokePointsRef = useRef<{ x: number; y: number }[]>([]);
 
   // Calculate current catch probability (0.0 to 1.0)
   const baseCatch = beast.baseCatchRate;
   const heroBonus = hero.catchAccuracyBonus || 1.0;
-  const accuracyMultiplier = castAccuracy === 'masterful' ? 1.7 : castAccuracy === 'great' ? 1.4 : castAccuracy === 'good' ? 1.2 : 1.0;
+  const accuracyMultiplier =
+    castAccuracy === 'masterful' ? 1.7 : castAccuracy === 'great' ? 1.4 : castAccuracy === 'good' ? 1.2 : 1.0;
   const currentCatchChance = Math.min(0.95, (baseCatch + treatBonus) * heroBonus * accuracyMultiplier);
 
   // Play creature cry on encounter open
@@ -39,32 +49,41 @@ export default function EncounterModal({
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
+    if (ctx) {
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+    }
   }, [phase]);
 
-  const handleStartDraw = (e) => {
+  const handleStartDraw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
     if (phase !== 'encounter') return;
     setIsDrawing(true);
     strokePointsRef.current = [];
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+
     const rect = canvas.getBoundingClientRect();
-    const x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
-    const y = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
     strokePointsRef.current.push({ x, y });
   };
 
-  const handleDrawMove = (e) => {
+  const handleDrawMove = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
     if (!isDrawing) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
     const rect = canvas.getBoundingClientRect();
-    const x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
-    const y = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
     strokePointsRef.current.push({ x, y });
 
     // Draw glowing wand beam
@@ -86,9 +105,8 @@ export default function EncounterModal({
     if (!isDrawing) return;
     setIsDrawing(false);
     const pts = strokePointsRef.current;
-    if (pts.length < 5) return; // Too short to be a gesture
+    if (pts.length < 5) return;
 
-    // Check if player has spell energy
     if (inventory.spell_energy <= 0) {
       alert('You are out of Spell Energy! Visit a nearby Magical Inn to replenish.');
       return;
@@ -96,9 +114,8 @@ export default function EncounterModal({
 
     onConsumeItem('spell_energy', 1);
 
-    // Rate gesture accuracy based on length and smoothness
     const length = pts.length;
-    let acc = 'good';
+    let acc: 'fair' | 'good' | 'great' | 'masterful' = 'good';
     if (length > 35) acc = 'masterful';
     else if (length > 20) acc = 'great';
     else if (length > 10) acc = 'good';
@@ -106,25 +123,23 @@ export default function EncounterModal({
 
     setCastAccuracy(acc);
     sounds.playWandCast(acc);
-    executeCaptureAttempt(acc);
+    executeCaptureAttempt();
   };
 
-  // Quick Cast Button for accessibility
   const handleQuickCast = () => {
     if (inventory.spell_energy <= 0) {
       alert('You are out of Spell Energy! Visit a nearby Magical Inn to replenish.');
       return;
     }
     onConsumeItem('spell_energy', 1);
-    const ratings = ['good', 'great', 'masterful'];
+    const ratings: ('good' | 'great' | 'masterful')[] = ['good', 'great', 'masterful'];
     const acc = ratings[Math.floor(Math.random() * ratings.length)];
     setCastAccuracy(acc);
     sounds.playWandCast(acc);
-    executeCaptureAttempt(acc);
+    executeCaptureAttempt();
   };
 
-  // Execute the 3-wobble suitcase sequence
-  const executeCaptureAttempt = (accuracy) => {
+  const executeCaptureAttempt = () => {
     setPhase('capturing');
     setWobbleCount(0);
 
@@ -143,7 +158,6 @@ export default function EncounterModal({
       setWobbleCount(3);
     }, 2100);
 
-    // Final outcome
     setTimeout(() => {
       const roll = Math.random();
       const success = roll <= currentCatchChance;
@@ -167,13 +181,11 @@ export default function EncounterModal({
           mark
         });
       } else {
-        // Flee check
         const fleeRoll = Math.random();
         if (fleeRoll < beast.fleeRate) {
           setPhase('fled');
           sounds.playCreatureCry(beast.cryFreq * 0.7);
         } else {
-          // Broke free, can try again
           setPhase('encounter');
           setCastAccuracy(null);
           sounds.playCreatureCry(beast.cryFreq * 1.1);
@@ -182,16 +194,14 @@ export default function EncounterModal({
     }, 2800);
   };
 
-  // Feed treat to beast
-  const handleFeedTreat = (treatKey) => {
-    const treat = ITEMS[treatKey];
-    if (!treat || inventory[treatKey] <= 0) return;
+  const handleFeedTreat = (treatKey: string) => {
+    const treat: Item = ITEMS[treatKey];
+    if (!treat || (inventory[treatKey] || 0) <= 0) return;
 
     onConsumeItem(treatKey, 1);
     sounds.playPurr();
-    const bonus = treat.calmPower * (hero.bonusTreatEffect || 1.0);
+    const bonus = (treat.calmPower || 0.3) * (hero.bonusTreatEffect || 1.0);
     setTreatBonus((prev) => prev + bonus);
-    setSelectedTreat(treat);
     setShowTreatDrawer(false);
 
     confetti({
@@ -202,11 +212,10 @@ export default function EncounterModal({
     });
   };
 
-  // Ring color based on catch chance
-  const getRingColor = () => {
-    if (currentCatchChance > 0.65) return '#10b981'; // Green
-    if (currentCatchChance > 0.45) return '#f59e0b'; // Yellow
-    return '#ef4444'; // Orange/Red
+  const getRingColor = (): string => {
+    if (currentCatchChance > 0.65) return '#10b981';
+    if (currentCatchChance > 0.45) return '#f59e0b';
+    return '#ef4444';
   };
 
   return (
@@ -262,15 +271,10 @@ export default function EncounterModal({
               }}
             >
               <span>⚡</span>
-              <span>{inventory.spell_energy}</span>
+              <span>{inventory.spell_energy || 0}</span>
             </div>
 
-            <button
-              onClick={onClose}
-              className="btn-icon"
-              style={{ width: '36px', height: '36px' }}
-              title="Flee encounter"
-            >
+            <button onClick={onClose} className="btn-icon" style={{ width: '36px', height: '36px' }} title="Flee encounter">
               <X size={18} />
             </button>
           </div>
@@ -278,15 +282,11 @@ export default function EncounterModal({
 
         {/* Beast Name & Title */}
         <div style={{ textAlign: 'center', zIndex: 10, marginTop: '4px' }}>
-          <h2
-            className="font-cinzel title-glow"
-            style={{ fontSize: '1.45rem', fontWeight: 800, color: '#fef08a', letterSpacing: '0.04em' }}
-          >
+          <h2 className="font-cinzel title-glow" style={{ fontSize: '1.45rem', fontWeight: 800, color: '#fef08a', letterSpacing: '0.04em' }}>
             {beast.name}
           </h2>
           <p style={{ fontSize: '0.8rem', color: '#94a3b8' }}>{beast.species}</p>
 
-          {/* Mark Badge if present */}
           {mark && (
             <div
               className="mark-badge"
@@ -315,7 +315,6 @@ export default function EncounterModal({
             zIndex: 5
           }}
         >
-          {/* Target Capture Ring */}
           {phase === 'encounter' && (
             <div
               style={{
@@ -330,17 +329,8 @@ export default function EncounterModal({
             />
           )}
 
-          {/* Beast Sprite / Suitcase Animation */}
           {phase !== 'capturing' && phase !== 'caught' && phase !== 'fled' && (
-            <div
-              className="animate-float"
-              style={{
-                position: 'relative',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
-            >
+            <div className="animate-float" style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <img
                 src={beast.sprite}
                 alt={beast.name}
@@ -354,35 +344,25 @@ export default function EncounterModal({
             </div>
           )}
 
-          {/* Capturing Suitcase with Wobbles */}
+          {/* Capturing Suitcase */}
           {phase === 'capturing' && (
-            <div
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: '12px'
-              }}
-            >
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px' }}>
               <div
                 style={{
-                  fontSize: '84px',
-                  transform: wobbleCount % 2 === 1 ? 'rotate(-12deg)' : wobbleCount > 0 ? 'rotate(12deg)' : 'none',
+                  width: '140px',
+                  height: '140px',
+                  transform: wobbleCount % 2 === 1 ? 'rotate(-14deg)' : wobbleCount > 0 ? 'rotate(14deg)' : 'none',
                   transition: 'transform 0.15s ease-in-out',
-                  filter: 'drop-shadow(0 12px 24px rgba(245, 158, 11, 0.5))'
+                  filter: 'drop-shadow(0 14px 28px rgba(245, 158, 11, 0.6))'
                 }}
               >
-                🧳
+                <img
+                  src={wobbleCount === 0 ? '/items/briefcase_vortex.png' : '/items/briefcase_closed.png'}
+                  alt="Newt's Suitcase"
+                  style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                />
               </div>
-              <div
-                className="font-cinzel"
-                style={{
-                  fontSize: '1rem',
-                  fontWeight: 700,
-                  color: '#fbbf24',
-                  letterSpacing: '0.1em'
-                }}
-              >
+              <div className="font-cinzel" style={{ fontSize: '1rem', fontWeight: 700, color: '#fbbf24', letterSpacing: '0.1em' }}>
                 {wobbleCount === 0 && 'SUITCASE CLOSING...'}
                 {wobbleCount === 1 && 'SHAKE 1...'}
                 {wobbleCount === 2 && 'SHAKE 2...'}
@@ -434,7 +414,7 @@ export default function EncounterModal({
           )}
         </div>
 
-        {/* Gesture Drawing Canvas (Active during encounter) */}
+        {/* Gesture Drawing Canvas */}
         {phase === 'encounter' && (
           <div
             style={{
@@ -474,7 +454,6 @@ export default function EncounterModal({
         <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '10px', zIndex: 10 }}>
           {phase === 'encounter' && (
             <>
-              {/* Catch probability bar */}
               <div style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span style={{ fontSize: '0.75rem', color: '#94a3b8', whiteSpace: 'nowrap' }}>Capture Chance:</span>
                 <div style={{ flex: 1, height: '8px', background: '#334155', borderRadius: '4px', overflow: 'hidden' }}>
@@ -492,35 +471,20 @@ export default function EncounterModal({
                 </span>
               </div>
 
-              {/* Action buttons */}
               <div style={{ display: 'flex', gap: '10px', width: '100%' }}>
-                {/* Treat button */}
                 <button
                   className="btn-secondary"
                   onClick={() => setShowTreatDrawer(!showTreatDrawer)}
-                  style={{
-                    flex: 1,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '6px'
-                  }}
+                  style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
                 >
                   <Heart size={16} color="#ec4899" />
                   <span>Feed Treat</span>
                 </button>
 
-                {/* Quick Cast Button */}
                 <button
                   className="btn-magical"
                   onClick={handleQuickCast}
-                  style={{
-                    flex: 1,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '6px'
-                  }}
+                  style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
                 >
                   <Wand2 size={16} />
                   <span>Cast Charm</span>
@@ -529,7 +493,6 @@ export default function EncounterModal({
             </>
           )}
 
-          {/* After capture complete button */}
           {(phase === 'caught' || phase === 'fled') && (
             <button className="btn-magical" onClick={onClose} style={{ width: '100%', padding: '14px' }}>
               Return to Map
@@ -592,7 +555,7 @@ export default function EncounterModal({
                       <div>
                         <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#f8fafc' }}>{it.name}</div>
                         <div style={{ fontSize: '0.68rem', color: '#94a3b8' }}>
-                          x{count} • +{Math.round(it.calmPower * 100)}% Calm
+                          x{count} • +{Math.round((it.calmPower || 0.3) * 100)}% Calm
                         </div>
                       </div>
                     </button>

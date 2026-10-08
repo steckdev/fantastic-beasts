@@ -1,4 +1,6 @@
-export const HEROES = [
+import { Hero } from '../types';
+
+export const HEROES: Hero[] = [
   {
     id: 'newt_scamander',
     name: 'Newt Scamander',

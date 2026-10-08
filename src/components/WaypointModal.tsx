@@ -1,12 +1,20 @@
 import React, { useState } from 'react';
 import confetti from 'canvas-confetti';
-import { X, Sparkles, Coffee, TreePine, RotateCw, Check } from 'lucide-react';
+import { X, RotateCw } from 'lucide-react';
 import { sounds } from '../services/soundService';
 import { ITEMS } from '../data/itemsData';
+import { Waypoint } from '../types';
 
-export default function WaypointModal({ waypoint, inRange, onSpinSuccess, onClose }) {
-  const [spinning, setSpinning] = useState(false);
-  const [rewards, setRewards] = useState(null);
+interface WaypointModalProps {
+  waypoint: Waypoint;
+  inRange: boolean;
+  onSpinSuccess: (waypointId: string, rewards: Record<string, number>) => void;
+  onClose: () => void;
+}
+
+export default function WaypointModal({ waypoint, inRange, onSpinSuccess, onClose }: WaypointModalProps) {
+  const [spinning, setSpinning] = useState<boolean>(false);
+  const [rewards, setRewards] = useState<Record<string, number> | null>(null);
 
   const isCooldown = waypoint.cooldownUntil && waypoint.cooldownUntil > Date.now();
   const cooldownSecs = Math.max(0, Math.ceil(((waypoint.cooldownUntil || 0) - Date.now()) / 1000));
@@ -19,19 +27,17 @@ export default function WaypointModal({ waypoint, inRange, onSpinSuccess, onClos
     setTimeout(() => {
       setSpinning(false);
 
-      // Generate rewards
       const energyGain = Math.floor(12 + Math.random() * 15);
       const knutsGain = Math.floor(25 + Math.random() * 35);
       const treatsKeys = ['treat_brioche', 'treat_woodlice', 'treat_moon_pellets', 'treat_gilded_knut'];
       const awardedTreat = treatsKeys[Math.floor(Math.random() * treatsKeys.length)];
 
-      const dropped = {
+      const dropped: Record<string, number> = {
         spell_energy: energyGain,
         knuts: knutsGain,
         [awardedTreat]: 1
       };
 
-      // 10% chance for Enchanted Suitcase Lure
       if (Math.random() < 0.12) {
         dropped.beast_lure = 1;
       }
@@ -64,7 +70,6 @@ export default function WaypointModal({ waypoint, inRange, onSpinSuccess, onClos
           border: '2px solid var(--border-gold-bright)'
         }}
       >
-        {/* Top Header */}
         <div style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span className={`threat-badge ${waypoint.type === 'greenhouse' ? 'threat-1' : 'threat-3'}`}>
             {waypoint.type === 'greenhouse' ? '🌿 Herbology Greenhouse' : '🍺 Wizarding Inn'}
@@ -74,7 +79,6 @@ export default function WaypointModal({ waypoint, inRange, onSpinSuccess, onClos
           </button>
         </div>
 
-        {/* Waypoint Title */}
         <div>
           <h2 className="font-cinzel title-glow" style={{ fontSize: '1.3rem', color: '#fef08a', fontWeight: 800 }}>
             {waypoint.name}
@@ -84,7 +88,6 @@ export default function WaypointModal({ waypoint, inRange, onSpinSuccess, onClos
           </p>
         </div>
 
-        {/* Center Spinner Wheel / Icon */}
         <div
           onClick={handleSpin}
           style={{
@@ -110,7 +113,6 @@ export default function WaypointModal({ waypoint, inRange, onSpinSuccess, onClos
           </div>
         </div>
 
-        {/* Cooldown or Rewards View */}
         {rewards ? (
           <div className="glass-card" style={{ width: '100%', padding: '14px', textAlign: 'center' }}>
             <div style={{ color: '#34d399', fontWeight: 800, fontSize: '0.95rem', marginBottom: '8px' }}>

@@ -1,6 +1,16 @@
 import React, { useState } from 'react';
-import { Settings, Volume2, VolumeX, Car, Map, User, RefreshCw, X, Key } from 'lucide-react';
+import { Settings, Volume2, VolumeX, Car, X, Key } from 'lucide-react';
 import { HEROES } from '../data/heroesData';
+import { GameSettings } from '../types';
+
+interface SettingsModalProps {
+  settings: GameSettings;
+  currentHeroId: string;
+  onUpdateSettings: (newSettings: Partial<GameSettings>) => void;
+  onChangeHero: () => void;
+  onResetGame: () => void;
+  onClose: () => void;
+}
 
 export default function SettingsModal({
   settings,
@@ -9,8 +19,8 @@ export default function SettingsModal({
   onChangeHero,
   onResetGame,
   onClose
-}) {
-  const [apiKey, setApiKey] = useState(settings.googleMapsApiKey || '');
+}: SettingsModalProps) {
+  const [apiKey, setApiKey] = useState<string>(settings.googleMapsApiKey || '');
   const hero = HEROES.find((h) => h.id === currentHeroId) || HEROES[0];
 
   const handleSaveApiKey = () => {

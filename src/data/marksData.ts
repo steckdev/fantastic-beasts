@@ -1,4 +1,6 @@
-export const MARKS = [
+import { Mark } from '../types';
+
+export const MARKS: Mark[] = [
   {
     id: 'mark_storm',
     name: 'Mark of the Storm',
@@ -109,7 +111,7 @@ export const MARKS = [
   }
 ];
 
-export function rollMark(bonusMultiplier = 1.0) {
+export function rollMark(bonusMultiplier: number = 1.0): Mark | null {
   // Chance to have ANY mark: base 28% * bonusMultiplier
   const hasMarkChance = 0.28 * bonusMultiplier;
   if (Math.random() > hasMarkChance) return null;

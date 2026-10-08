@@ -26,7 +26,10 @@ interface MapEngineProps {
   onSelectDisturbance: (distObj: Disturbance, inRange: boolean, distMeters: number) => void;
   onSelectWaypoint: (wp: Waypoint, inRange: boolean, distMeters: number) => void;
   activeLureTimeLeft: number;
+  mapStyle?: 'marauder' | 'parchment' | 'twilight';
 }
+
+const DEFAULT_GOOGLE_MAPS_KEY = 'AIzaSyCkIp8w2vY1aAnxAXpd8x5siTbXcnva_rk';
 
 export default function MapEngine({
   playerPos,
@@ -43,10 +46,12 @@ export default function MapEngine({
   onToggleDriveMode,
   onSelectDisturbance,
   onSelectWaypoint,
-  activeLureTimeLeft
+  activeLureTimeLeft,
+  mapStyle = 'marauder'
 }: MapEngineProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
+  const tileLayerRef = useRef<L.TileLayer | null>(null);
   const playerMarkerRef = useRef<L.Marker | null>(null);
   const buddyMarkerRef = useRef<L.Marker | null>(null);
   const pulseCircleRef = useRef<L.Circle | null>(null);
@@ -60,7 +65,7 @@ export default function MapEngine({
 
   const interactionRadius = driveMode ? 130 : 80;
 
-  // Initialize Leaflet Map
+  // Initialize Leaflet Map with Google Maps Tiles & Fantastic Beasts Live Filter
   useEffect(() => {
     if (!mapContainerRef.current) return;
 
@@ -69,21 +74,50 @@ export default function MapEngine({
         center: [playerPos.lat, playerPos.lng],
         zoom: 17,
         minZoom: 14,
-        maxZoom: 19,
+        maxZoom: 20,
         zoomControl: false,
         attributionControl: false
       });
 
-      // CartoDB Voyager tile layer
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-        maxZoom: 19,
-        subdomains: 'abcd'
-      }).addTo(map);
+      const googleMapsKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || DEFAULT_GOOGLE_MAPS_KEY;
+      const styleClass =
+        mapStyle === 'parchment'
+          ? 'magical-map-parchment'
+          : mapStyle === 'twilight'
+          ? 'magical-map-twilight'
+          : 'magical-map-marauder';
 
+      // Google Maps Roadmap Layer with Fantastic Beasts Marauder Filter
+      const tileLayer = L.tileLayer(
+        `https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&key=${googleMapsKey}`,
+        {
+          maxZoom: 20,
+          subdomains: ['0', '1', '2', '3'],
+          className: styleClass
+        }
+      ).addTo(map);
+
+      tileLayerRef.current = tileLayer;
       markersGroupRef.current = L.layerGroup().addTo(map);
       mapInstanceRef.current = map;
     }
   }, []);
+
+  // Update live map filter if mapStyle preference changes
+  useEffect(() => {
+    if (!tileLayerRef.current) return;
+    const styleClass =
+      mapStyle === 'parchment'
+        ? 'magical-map-parchment'
+        : mapStyle === 'twilight'
+        ? 'magical-map-twilight'
+        : 'magical-map-marauder';
+
+    const container = tileLayerRef.current.getContainer();
+    if (container) {
+      container.className = `leaflet-layer ${styleClass}`;
+    }
+  }, [mapStyle]);
 
   // Update Player Position, Buddy Avatar, and Radar Circle
   useEffect(() => {

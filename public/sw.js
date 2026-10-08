@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fantastic-beasts-v1';
+const CACHE_NAME = 'fantastic-beasts-v2';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -34,11 +34,15 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
-  // Network first with cache fallback
+
+  const url = new URL(event.request.url);
+  // Do not intercept cross-origin tile APIs or external analytics
+  if (url.origin !== self.location.origin) return;
+
   event.respondWith(
     fetch(event.request)
       .then((response) => {
-        if (response && response.status === 200) {
+        if (response && response.status === 200 && response.type === 'basic') {
           const responseClone = response.clone();
           caches.open(CACHE_NAME).then((cache) => {
             cache.put(event.request, responseClone);
@@ -46,8 +50,14 @@ self.addEventListener('fetch', (event) => {
         }
         return response;
       })
-      .catch(() => {
-        return caches.match(event.request);
+      .catch(async () => {
+        const cached = await caches.match(event.request);
+        if (cached) return cached;
+        if (event.request.mode === 'navigate') {
+          const fallback = await caches.match('/index.html');
+          if (fallback) return fallback;
+        }
+        return new Response('Offline', { status: 503, statusText: 'Offline' });
       })
   );
 });

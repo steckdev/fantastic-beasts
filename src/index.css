@@ -375,3 +375,19 @@ html, body, #root {
 .leaflet-control-attribution a {
   color: #94a3b8 !important;
 }
+
+/* Fantastic Beasts Cartographic Live Filters */
+.magical-map-marauder {
+  /* Inverts stark Google Maps white into midnight slate while glowing road veins turn into warm amber/gold leylines */
+  filter: invert(93%) hue-rotate(195deg) brightness(85%) contrast(120%) saturate(145%) !important;
+}
+
+.magical-map-parchment {
+  /* 1920s Antique wizarding parchment / vintage New York map */
+  filter: sepia(75%) hue-rotate(330deg) brightness(88%) contrast(118%) saturate(135%) !important;
+}
+
+.magical-map-twilight {
+  /* Deep arcane twilight leylines */
+  filter: invert(90%) hue-rotate(225deg) brightness(78%) contrast(125%) saturate(160%) !important;
+}

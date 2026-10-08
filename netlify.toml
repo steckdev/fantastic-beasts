@@ -2,6 +2,9 @@
   command = "npm run build"
   publish = "dist"
 
+[build.environment]
+  VITE_GOOGLE_MAPS_API_KEY = "AIzaSyCkIp8w2vY1aAnxAXpd8x5siTbXcnva_rk"
+
 [[redirects]]
   from = "/*"
   to = "/index.html"

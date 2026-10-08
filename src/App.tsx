@@ -197,14 +197,8 @@ export default function App() {
       saveActiveDisturbances(combined);
     }
 
-    const initialWaypoints = generateWaypoints(playerPos.lat, playerPos.lng, 6);
+    const initialWaypoints = generateWaypoints(playerPos.lat, playerPos.lng, 7);
     setWaypoints(initialWaypoints);
-
-    fetchNearbyRealPOIs(playerPos.lat, playerPos.lng).then((realPOIs) => {
-      if (realPOIs && realPOIs.length > 0) {
-        setWaypoints(realPOIs);
-      }
-    });
   }, []);
 
   // Periodic disturbance spawner & refresh cycle (checks every 45s)
@@ -621,6 +615,7 @@ export default function App() {
         onSelectDisturbance={handleSelectDisturbance}
         onSelectWaypoint={handleSelectWaypoint}
         activeLureTimeLeft={lureTimeLeft}
+        mapStyle={gameState.settings?.mapStyle || 'marauder'}
       />
 
       {/* 2. Top-Level Tab Views */}

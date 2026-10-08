@@ -66,24 +66,27 @@ export function generateDisturbances(
   return disturbances;
 }
 
-// Procedural Waypoints (Magical Inns & Greenhouses) around player
-export function generateWaypoints(centerLat: number, centerLng: number, count: number = 5): Waypoint[] {
+// Procedural Waypoints (Magical Inns & Greenhouses) around player (works everywhere, including non-POI areas)
+export function generateWaypoints(centerLat: number, centerLng: number, count: number = 7): Waypoint[] {
   const innNames = [
     'The Leaky Cauldron Inn',
     'The Hog\'s Head Outpost',
     'Madame Malkin\'s Rest Stop',
     'Flourish & Blotts Registry',
     'Herbology Greenhouse #3',
-    'Apothecary Dispensary',
-    'MACUSA Watchtower',
-    'Kowalski Bakery Waypoint',
-    'Magical Menagerie Supply'
+    'Slug & Jiggers Apothecary',
+    'MACUSA Auror Watchtower',
+    'Jacob Kowalski\'s Bakery Waypoint',
+    'Magical Menagerie Supply Cache',
+    'Ollivanders Wand Workshop',
+    'Mandrake Conservatory #5',
+    'The Blind Pig Speakeasy'
   ];
 
   const waypoints: Waypoint[] = [];
   for (let i = 0; i < count; i++) {
     const angle = (i / count) * Math.PI * 2 + (Math.random() * 0.4 - 0.2);
-    const distMeters = 50 + Math.random() * 180;
+    const distMeters = 40 + Math.random() * 190;
     const deltaLat = (distMeters * Math.cos(angle)) / 111320;
     const deltaLng = (distMeters * Math.sin(angle)) / (111320 * Math.cos((centerLat * Math.PI) / 180));
 
@@ -103,39 +106,8 @@ export function generateWaypoints(centerLat: number, centerLng: number, count: n
   return waypoints;
 }
 
-// Try to query real OpenStreetMap Overpass POIs if network is available
-export async function fetchNearbyRealPOIs(lat: number, lng: number): Promise<Waypoint[] | null> {
-  try {
-    const query = `
-      [out:json][timeout:4];
-      (
-        node["amenity"~"cafe|restaurant|library|park|fountain"](around:400,${lat},${lng});
-        node["historic"](around:400,${lat},${lng});
-        node["tourism"](around:400,${lat},${lng});
-      );
-      out center 8;
-    `;
-    const res = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`);
-    if (!res.ok) return null;
-    const data = await res.json();
-    if (!data || !data.elements || data.elements.length === 0) return null;
-
-    return data.elements.map((el: { id: number; lat: number; lon: number; tags?: Record<string, string> }, idx: number) => {
-      const tags = el.tags || {};
-      const name = tags.name || tags.amenity || 'Magical Waypoint';
-      const isGreenhouse = !!(tags.leisure || tags.park || tags.fountain);
-      return {
-        id: `osm_poi_${el.id}`,
-        name: `${name} (${isGreenhouse ? 'Greenhouse' : 'Wizarding Inn'})`,
-        type: isGreenhouse ? 'greenhouse' : 'inn',
-        icon: isGreenhouse ? '🌿' : '🍺',
-        color: isGreenhouse ? '#10b981' : '#f59e0b',
-        lat: el.lat,
-        lng: el.lon,
-        cooldownUntil: 0
-      };
-    });
-  } catch {
-    return null;
-  }
+// Procedural-only POI loader to avoid third-party CORS issues
+export async function fetchNearbyRealPOIs(_lat: number, _lng: number): Promise<Waypoint[] | null> {
+  // Rely directly on robust procedural waypoints to ensure 100% uptime without CORS errors
+  return null;
 }

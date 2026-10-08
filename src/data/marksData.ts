@@ -112,9 +112,9 @@ export const MARKS: Mark[] = [
 ];
 
 export function rollMark(bonusMultiplier: number = 1.0): Mark | null {
-  // True Chase Rarity: Base ~6.5% mark spawn rate (1 in 15 beasts)
-  // Queenie or specialized lures can elevate this up to ~12-16%
-  const hasMarkChance = Math.min(0.25, 0.065 * bonusMultiplier);
+  // Ultra-Rare Chase Rarity: Base ~2.8% mark spawn rate (~1 in 36 beasts)
+  // Queenie or specialized lures elevate this to ~5-6%
+  const hasMarkChance = Math.min(0.08, 0.028 * bonusMultiplier);
   if (Math.random() > hasMarkChance) return null;
 
   // Weighted roll among marks (Mythic is extremely rare)

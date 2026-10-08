@@ -140,8 +140,8 @@ export interface GameSettings {
   soundEnabled: boolean;
   driveMode: boolean;
   useVirtualGPS: boolean;
-  googleMapsApiKey: string;
-  mapStyle: 'marauder' | 'dark' | 'satellite';
+  googleMapsApiKey?: string;
+  mapStyle: 'marauder' | 'parchment' | 'twilight';
 }
 
 export interface GameStats {

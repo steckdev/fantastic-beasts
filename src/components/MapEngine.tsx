@@ -73,8 +73,8 @@ export default function MapEngine({
       const map = L.map(mapContainerRef.current, {
         center: [playerPos.lat, playerPos.lng],
         zoom: 17,
-        minZoom: 14,
-        maxZoom: 20,
+        minZoom: 16,
+        maxZoom: 18,
         zoomControl: false,
         attributionControl: false
       });
@@ -87,11 +87,12 @@ export default function MapEngine({
           ? 'magical-map-twilight'
           : 'magical-map-marauder';
 
-      // Google Maps Roadmap Layer with Fantastic Beasts Marauder Filter
+      // Google Maps Roadmap Layer with Fantastic Beasts Filter (roads & house numbers hidden, POIs & parks preserved)
       const tileLayer = L.tileLayer(
-        `https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&key=${googleMapsKey}`,
+        `https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&apistyle=s.t:3%7Cs.e:l%7Cp.v:off%7Cs.t:21%7Cs.e:l%7Cp.v:off&key=${googleMapsKey}`,
         {
-          maxZoom: 20,
+          minZoom: 16,
+          maxZoom: 18,
           subdomains: ['0', '1', '2', '3'],
           className: styleClass
         }
@@ -167,6 +168,13 @@ export default function MapEngine({
     } else {
       playerMarkerRef.current.setLatLng(latlng);
       playerMarkerRef.current.setIcon(playerIcon);
+    }
+
+    // Keep camera smoothly following player if they move beyond 65m from map center
+    const currentCenter = map.getCenter();
+    const distFromCenter = getDistanceMeters(currentCenter.lat, currentCenter.lng, playerPos.lat, playerPos.lng);
+    if (distFromCenter > 65) {
+      map.panTo(latlng, { animate: true, duration: 0.35 });
     }
 
     // Walking Buddy Companion Marker (positioned slightly to the east of player)

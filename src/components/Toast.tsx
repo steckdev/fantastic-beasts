@@ -8,13 +8,16 @@ interface ToastProps {
 }
 
 export default function Toast({ toast, onDismiss }: ToastProps) {
+  const onDismissRef = React.useRef(onDismiss);
+  onDismissRef.current = onDismiss;
+
   useEffect(() => {
     if (!toast) return;
     const timer = setTimeout(() => {
-      onDismiss();
-    }, 3800);
+      onDismissRef.current();
+    }, 2800);
     return () => clearTimeout(timer);
-  }, [toast, onDismiss]);
+  }, [toast?.id]);
 
   if (!toast) return null;
 
@@ -53,6 +56,7 @@ export default function Toast({ toast, onDismiss }: ToastProps) {
   return (
     <div
       role="alert"
+      onClick={onDismiss}
       style={{
         position: 'fixed',
         top: 'calc(var(--safe-top) + 16px)',
@@ -62,11 +66,14 @@ export default function Toast({ toast, onDismiss }: ToastProps) {
         width: 'calc(100% - 32px)',
         maxWidth: '430px',
         animation: 'slideDown 0.35s cubic-bezier(0.16, 1, 0.3, 1)',
-        pointerEvents: 'auto'
+        pointerEvents: 'auto',
+        cursor: 'pointer'
       }}
     >
       <div
         style={{
+          position: 'relative',
+          overflow: 'hidden',
           background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.96) 0%, rgba(10, 15, 29, 0.98) 100%)',
           backdropFilter: 'blur(16px)',
           WebkitBackdropFilter: 'blur(16px)',
@@ -124,7 +131,10 @@ export default function Toast({ toast, onDismiss }: ToastProps) {
         </div>
 
         <button
-          onClick={onDismiss}
+          onClick={(e) => {
+            e.stopPropagation();
+            onDismiss();
+          }}
           style={{
             background: 'transparent',
             border: 'none',
@@ -141,6 +151,19 @@ export default function Toast({ toast, onDismiss }: ToastProps) {
         >
           <X size={16} />
         </button>
+
+        {/* Auto-dismiss progress bar indicator */}
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            height: '3px',
+            background: getBorderColor(),
+            width: '100%',
+            animation: 'toastProgress 2.8s linear forwards'
+          }}
+        />
       </div>
     </div>
   );

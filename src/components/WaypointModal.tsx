@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import confetti from 'canvas-confetti';
-import { X, RotateCw } from 'lucide-react';
+import { X, RotateCw, Zap } from 'lucide-react';
 import { sounds } from '../services/soundService';
 import { ITEMS } from '../data/itemsData';
 import { Waypoint } from '../types';
@@ -10,9 +10,10 @@ interface WaypointModalProps {
   inRange: boolean;
   onSpinSuccess: (waypointId: string, rewards: Record<string, number>) => void;
   onClose: () => void;
+  onApparate?: () => void;
 }
 
-export default function WaypointModal({ waypoint, inRange, onSpinSuccess, onClose }: WaypointModalProps) {
+export default function WaypointModal({ waypoint, inRange, onSpinSuccess, onClose, onApparate }: WaypointModalProps) {
   const [spinning, setSpinning] = useState<boolean>(false);
   const [rewards, setRewards] = useState<Record<string, number> | null>(null);
 
@@ -142,15 +143,30 @@ export default function WaypointModal({ waypoint, inRange, onSpinSuccess, onClos
           <div style={{ color: '#94a3b8', fontSize: '0.85rem' }}>
             Inn recharging energy leylines. Available in {Math.ceil(cooldownSecs / 60)} minutes.
           </div>
+        ) : !inRange ? (
+          <button
+            className="btn-magical"
+            onClick={onApparate}
+            style={{
+              width: '100%',
+              padding: '12px',
+              background: 'linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%)',
+              borderColor: '#c084fc',
+              boxShadow: '0 0 16px rgba(168, 85, 247, 0.4)'
+            }}
+          >
+            <Zap size={18} />
+            <span>⚡ Apparate to Location {waypoint.distMeters ? `(${waypoint.distMeters}m)` : ''}</span>
+          </button>
         ) : (
           <button
             className="btn-magical"
-            disabled={!inRange || spinning}
+            disabled={spinning}
             onClick={handleSpin}
-            style={{ width: '100%', padding: '12px', opacity: inRange ? 1 : 0.5 }}
+            style={{ width: '100%', padding: '12px' }}
           >
             <RotateCw size={18} className={spinning ? 'animate-spin' : ''} />
-            <span>{inRange ? 'Spin Waypoint Plate' : 'Out of Range'}</span>
+            <span>Spin Waypoint Plate</span>
           </button>
         )}
 

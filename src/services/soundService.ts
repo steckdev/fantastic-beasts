@@ -225,6 +225,42 @@ class SoundService {
     osc.start(t);
     osc.stop(t + 0.25);
   }
+
+  playApparition(): void {
+    if (!this.enabled) return;
+    this.init();
+    if (!this.ctx) return;
+
+    const t = this.ctx.currentTime;
+
+    // Sharp whip-like "Crack!" snap
+    const snapOsc = this.ctx.createOscillator();
+    const snapGain = this.ctx.createGain();
+    snapOsc.type = 'sawtooth';
+    snapOsc.frequency.setValueAtTime(860, t);
+    snapOsc.frequency.exponentialRampToValueAtTime(70, t + 0.08);
+    snapGain.gain.setValueAtTime(0.45, t);
+    snapGain.gain.exponentialRampToValueAtTime(0.001, t + 0.09);
+    snapOsc.connect(snapGain);
+    snapGain.connect(this.ctx.destination);
+    snapOsc.start(t);
+    snapOsc.stop(t + 0.09);
+
+    // Ethereal rushing air / magical displacement sweep
+    const sweepOsc = this.ctx.createOscillator();
+    const sweepGain = this.ctx.createGain();
+    sweepOsc.type = 'sine';
+    sweepOsc.frequency.setValueAtTime(240, t + 0.03);
+    sweepOsc.frequency.exponentialRampToValueAtTime(880, t + 0.25);
+    sweepOsc.frequency.exponentialRampToValueAtTime(360, t + 0.42);
+    sweepGain.gain.setValueAtTime(0.001, t);
+    sweepGain.gain.linearRampToValueAtTime(0.3, t + 0.12);
+    sweepGain.gain.exponentialRampToValueAtTime(0.001, t + 0.45);
+    sweepOsc.connect(sweepGain);
+    sweepGain.connect(this.ctx.destination);
+    sweepOsc.start(t + 0.03);
+    sweepOsc.stop(t + 0.45);
+  }
 }
 
 export const sounds = new SoundService();

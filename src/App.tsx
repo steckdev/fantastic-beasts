@@ -20,6 +20,7 @@ import SettingsModal from './components/SettingsModal';
 import Navigation from './components/Navigation';
 import Toast from './components/Toast';
 import ItemBagModal from './components/ItemBagModal';
+import ApparitionModal, { ApparitionTarget } from './components/ApparitionModal';
 
 // Default initial coordinates (New York City / Woolworth Building MACUSA Headquarters)
 const DEFAULT_LAT = 40.7124;
@@ -39,24 +40,32 @@ export default function App() {
   const [showQuests, setShowQuests] = useState<boolean>(false);
   const [showSettings, setShowSettings] = useState<boolean>(false);
   const [showItemBag, setShowItemBag] = useState<boolean>(false);
+  const [apparitionTarget, setApparitionTarget] = useState<ApparitionTarget | null>(null);
+  const [isApparating, setIsApparating] = useState<boolean>(false);
 
   // In-game Toast Notification System (replaces native window.alert)
   const [activeToast, setActiveToast] = useState<ToastNotification | null>(null);
 
-  const showToast = (title: string, message: string, type: ToastNotification['type'] = 'info') => {
+  const showToast = React.useCallback((title: string, message: string, type: ToastNotification['type'] = 'info') => {
     setActiveToast({
       id: `toast_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       title,
       message,
       type
     });
-  };
+  }, []);
+
+  const handleDismissToast = React.useCallback(() => {
+    setActiveToast(null);
+  }, []);
 
   // Active Lure Countdown
   const [lureTimeLeft, setLureTimeLeft] = useState<number>(0);
 
   // Previous position for distance accumulation
   const lastPosRef = useRef<{ lat: number; lng: number }>(playerPos);
+  // Coordinate anchor for the active spawn cluster
+  const lastSpawnPosRef = useRef<{ lat: number; lng: number }>(playerPos);
 
   const hero: Hero = HEROES.find((h) => h.id === gameState.heroId) || HEROES[0];
   const buddyInstance: CapturedBeast | null =
@@ -81,6 +90,7 @@ export default function App() {
         const { latitude, longitude } = pos.coords;
         handleMovementDelta(latitude, longitude);
         setPlayerPos({ lat: latitude, lng: longitude });
+        checkAndSpawnAtLocation(latitude, longitude);
       },
       (err) => {
         console.warn('Geolocation unavailable or denied, falling back to simulated GPS:', err.message);
@@ -201,6 +211,109 @@ export default function App() {
     setWaypoints(initialWaypoints);
   }, []);
 
+  // Dynamic Movement Cluster Spawner: generates fresh beasts and waypoints when roaming into new territory
+  const checkAndSpawnAtLocation = (newLat: number, newLng: number, force: boolean = false) => {
+    const distFromLastSpawn = getDistanceMeters(
+      lastSpawnPosRef.current.lat,
+      lastSpawnPosRef.current.lng,
+      newLat,
+      newLng
+    );
+
+    // If player has moved more than 135 meters from the last spawn center (or forced on Apparition)
+    if (distFromLastSpawn >= 135 || force) {
+      lastSpawnPosRef.current = { lat: newLat, lng: newLng };
+      const now = Date.now();
+      const attempted = gameState.attemptedDisturbances || {};
+      const markMult = hero.bonusMarkChance || 1.0;
+
+      // 1. Dynamic Spawning for Disturbances
+      setDisturbances((prev) => {
+        // Keep active disturbances within 650m
+        const nearby = prev.filter((d) => {
+          if (!d || !d.id || attempted[d.id] || !d.expiresAt || d.expiresAt <= now) return false;
+          const dDist = getDistanceMeters(newLat, newLng, d.lat, d.lng);
+          return dDist <= 650;
+        });
+
+        // Count how many are in the immediate vicinity (<= 280m)
+        const closeCount = nearby.filter((d) => getDistanceMeters(newLat, newLng, d.lat, d.lng) <= 280).length;
+        const targetCount = gameState.activeLureUntil && gameState.activeLureUntil > now ? 9 : 7;
+
+        let updated = [...nearby];
+        if (closeCount < 5) {
+          const needed = Math.max(3, targetCount - closeCount);
+          const fresh = generateDisturbances(newLat, newLng, needed, markMult);
+          updated = [...nearby, ...fresh];
+        }
+
+        saveActiveDisturbances(updated);
+        return updated;
+      });
+
+      // 2. Dynamic Spawning for Waypoints (Inns & Greenhouses)
+      setWaypoints((prev) => {
+        // Keep existing waypoints within 650m so cooldowns are remembered
+        const nearby = prev.filter((w) => getDistanceMeters(newLat, newLng, w.lat, w.lng) <= 650);
+        const closeCount = nearby.filter((w) => getDistanceMeters(newLat, newLng, w.lat, w.lng) <= 320).length;
+
+        if (closeCount < 4) {
+          const needed = Math.max(3, 7 - closeCount);
+          const fresh = generateWaypoints(newLat, newLng, needed);
+          return [...nearby, ...fresh];
+        }
+        return nearby;
+      });
+    }
+  };
+
+  // Handle Apparition (Magical Teleportation to distant beast or waypoint)
+  const handleApparate = (target: ApparitionTarget) => {
+    const destLat = target.type === 'disturbance' ? target.disturbance!.lat : target.waypoint!.lat;
+    const destLng = target.type === 'disturbance' ? target.disturbance!.lng : target.waypoint!.lng;
+    const destName = target.type === 'disturbance' ? target.disturbance!.beast.name : target.waypoint!.name;
+
+    sounds.playApparition();
+    setIsApparating(true);
+    confetti({
+      particleCount: 50,
+      spread: 75,
+      origin: { y: 0.5 },
+      colors: ['#c084fc', '#fbbf24', '#38bdf8', '#ffffff']
+    });
+
+    setPlayerPos({ lat: destLat, lng: destLng });
+    lastPosRef.current = { lat: destLat, lng: destLng };
+
+    // Dynamically trigger fresh spawns around destination
+    checkAndSpawnAtLocation(destLat, destLng, true);
+    setApparitionTarget(null);
+
+    setTimeout(() => {
+      setIsApparating(false);
+
+      if (target.type === 'disturbance' && target.disturbance) {
+        setActiveEncounter(target.disturbance);
+        sounds.playWandCast('good');
+        setGameState((prev) => ({
+          ...prev,
+          seenBeasts: {
+            ...prev.seenBeasts,
+            [target.disturbance!.beast.id]: (prev.seenBeasts[target.disturbance!.beast.id] || 0) + 1
+          },
+          stats: {
+            ...prev.stats,
+            totalEncounters: prev.stats.totalEncounters + 1
+          }
+        }));
+      } else if (target.type === 'waypoint' && target.waypoint) {
+        setActiveWaypoint({ ...target.waypoint, inRange: true, distMeters: 0 });
+      }
+
+      showToast('⚡ *CRACK!*', `Apparated to ${destName}!`, 'success');
+    }, 450);
+  };
+
   // Periodic disturbance spawner & refresh cycle (checks every 45s)
   useEffect(() => {
     const timer = setInterval(() => {
@@ -210,10 +323,11 @@ export default function App() {
       setDisturbances((prev) => {
         // Prune expired or attempted
         const remaining = prev.filter((d) => d.expiresAt > now && !attempted[d.id]);
+        const closeCount = remaining.filter((d) => getDistanceMeters(playerPos.lat, playerPos.lng, d.lat, d.lng) <= 300).length;
         const targetCount = gameState.activeLureUntil && gameState.activeLureUntil > now ? 9 : 6;
 
-        if (remaining.length < targetCount) {
-          const needed = targetCount - remaining.length;
+        if (closeCount < 5) {
+          const needed = Math.max(3, targetCount - closeCount);
           const fresh = generateDisturbances(playerPos.lat, playerPos.lng, needed, hero.bonusMarkChance || 1.0);
           const updated = [...remaining, ...fresh];
           saveActiveDisturbances(updated);
@@ -251,6 +365,7 @@ export default function App() {
   const handleMovePlayer = (newLat: number, newLng: number) => {
     handleMovementDelta(newLat, newLng);
     setPlayerPos({ lat: newLat, lng: newLng });
+    checkAndSpawnAtLocation(newLat, newLng);
   };
 
   // Select Disturbance from Map
@@ -263,11 +378,12 @@ export default function App() {
     }
 
     if (!inRange) {
-      showToast(
-        'Out of Interaction Range',
-        `Too far! Move closer (${distMeters}m away) to investigate this magical trace.`,
-        'warning'
-      );
+      // Prompt player to magically Apparate directly to the trace
+      setApparitionTarget({
+        type: 'disturbance',
+        disturbance: distObj,
+        distMeters
+      });
       return;
     }
 
@@ -584,7 +700,7 @@ export default function App() {
   return (
     <div style={{ position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden' }}>
       {/* Toast Notification Banner System */}
-      <Toast toast={activeToast} onDismiss={() => setActiveToast(null)} />
+      <Toast toast={activeToast} onDismiss={handleDismissToast} />
 
       {/* 1. Main Map View */}
       <MapEngine
@@ -666,7 +782,71 @@ export default function App() {
           inRange={activeWaypoint.inRange ?? false}
           onSpinSuccess={handleWaypointSpinSuccess}
           onClose={() => setActiveWaypoint(null)}
+          onApparate={() =>
+            handleApparate({
+              type: 'waypoint',
+              waypoint: activeWaypoint,
+              distMeters: activeWaypoint.distMeters || 0
+            })
+          }
         />
+      )}
+
+      {/* Apparition Confirmation Modal */}
+      {apparitionTarget && (
+        <ApparitionModal
+          target={apparitionTarget}
+          onApparate={handleApparate}
+          onClose={() => setApparitionTarget(null)}
+        />
+      )}
+
+      {/* Magical Apparition Teleportation Screen FX */}
+      {isApparating && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 99999,
+            pointerEvents: 'all',
+            background: 'radial-gradient(circle, rgba(168, 85, 247, 0.45) 0%, rgba(10, 15, 29, 0.94) 100%)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)'
+          }}
+        >
+          <div
+            style={{
+              width: '180px',
+              height: '180px',
+              borderRadius: '50%',
+              border: '4px dashed #fbbf24',
+              boxShadow: '0 0 60px #a855f7, inset 0 0 40px #a855f7',
+              animation: 'apparitionVortex 0.45s ease-out forwards',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            <div style={{ fontSize: '52px', filter: 'drop-shadow(0 0 20px #fde047)' }}>⚡</div>
+          </div>
+          <div
+            className="font-cinzel"
+            style={{
+              marginTop: '20px',
+              fontSize: '1.25rem',
+              fontWeight: 800,
+              color: '#fef08a',
+              letterSpacing: '2px',
+              textShadow: '0 0 20px rgba(251, 191, 36, 0.8)'
+            }}
+          >
+            *CRACK!* APPARATING...
+          </div>
+        </div>
       )}
 
       {(showQuests || currentTab === 'tasks') && (

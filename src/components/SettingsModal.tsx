@@ -10,6 +10,7 @@ interface SettingsModalProps {
   onChangeHero: () => void;
   onResetGame: () => void;
   onClose: () => void;
+  onShowToast?: (title: string, message: string, type: 'info' | 'success' | 'warning' | 'error' | 'energy' | 'mark') => void;
 }
 
 export default function SettingsModal({
@@ -18,14 +19,24 @@ export default function SettingsModal({
   onUpdateSettings,
   onChangeHero,
   onResetGame,
-  onClose
+  onClose,
+  onShowToast
 }: SettingsModalProps) {
   const [apiKey, setApiKey] = useState<string>(settings.googleMapsApiKey || '');
+  const [savedBadge, setSavedBadge] = useState<boolean>(false);
   const hero = HEROES.find((h) => h.id === currentHeroId) || HEROES[0];
 
   const handleSaveApiKey = () => {
     onUpdateSettings({ googleMapsApiKey: apiKey });
-    alert('Google Maps API key saved! (If empty, standard cartographic tiles will be used)');
+    setSavedBadge(true);
+    setTimeout(() => setSavedBadge(false), 2500);
+    if (onShowToast) {
+      onShowToast(
+        'Cartography Updated',
+        'Google Maps API key saved! (If empty, standard cartographic tiles will be used)',
+        'success'
+      );
+    }
   };
 
   return (

@@ -1,10 +1,29 @@
 import React, { useState } from 'react';
 import confetti from 'canvas-confetti';
-import { Heart, Edit2, Check, ArrowLeft, Utensils, Smile, Star, Footprints } from 'lucide-react';
+import {
+  Heart,
+  Edit2,
+  Check,
+  ArrowLeft,
+  Utensils,
+  Smile,
+  Star,
+  Footprints,
+  Sparkles,
+  Wand2,
+  Scissors
+} from 'lucide-react';
 import { BEASTS } from '../data/beastsData';
 import { ITEMS } from '../data/itemsData';
 import { sounds } from '../services/soundService';
 import { CapturedBeast, Hero, Beast } from '../types';
+
+interface FloatingHeart {
+  id: number;
+  x: number;
+  y: number;
+  emoji: string;
+}
 
 interface SuitcaseSanctuaryProps {
   suitcase: CapturedBeast[];
@@ -16,6 +35,7 @@ interface SuitcaseSanctuaryProps {
   onPetBeast: (instanceId: string) => void;
   onRenameBeast: (instanceId: string, newName: string) => void;
   onClose: () => void;
+  onShowToast?: (title: string, message: string, type: 'info' | 'success' | 'warning' | 'error' | 'energy' | 'mark') => void;
 }
 
 export default function SuitcaseSanctuary({
@@ -27,13 +47,16 @@ export default function SuitcaseSanctuary({
   onFeedBeast,
   onPetBeast,
   onRenameBeast,
-  onClose
+  onClose,
+  onShowToast
 }: SuitcaseSanctuaryProps) {
   const [selectedHabitat, setSelectedHabitat] = useState<string>('All');
   const [activeBeast, setActiveBeast] = useState<{ beastObj: CapturedBeast; beast: Beast } | null>(null);
   const [isEditingName, setIsEditingName] = useState<boolean>(false);
   const [tempName, setTempName] = useState<string>('');
-  const [pettingFeedback, setPettingFeedback] = useState<boolean>(false);
+  const [animationClass, setAnimationClass] = useState<string>('');
+  const [emoteBubble, setEmoteBubble] = useState<string | null>(null);
+  const [floatingHearts, setFloatingHearts] = useState<FloatingHeart[]>([]);
 
   const habitats = ['All', 'Sunlit Plains', 'Enchanted Forest', 'Mystic Marsh', 'Sky Heights', 'Ancient Ruins'];
 
@@ -48,20 +71,99 @@ export default function SuitcaseSanctuary({
     setActiveBeast({ beastObj, beast: beastData });
     setIsEditingName(false);
     setTempName(beastObj.nickname || beastData.name);
+    setEmoteBubble(`"${beastData.name} greets you warmly!"`);
     sounds.playCreatureCry(beastData.cryFreq || 440);
   };
 
-  const handlePet = () => {
+  const spawnFloatingHeart = (x?: number, y?: number) => {
+    const posX = x ?? (90 + Math.random() * 80);
+    const posY = y ?? (60 + Math.random() * 60);
+    const emojis = ['💖', '✨', '🐾', '🌟', '💕', '🥰'];
+    const newHeart: FloatingHeart = {
+      id: Date.now() + Math.random(),
+      x: posX,
+      y: posY,
+      emoji: emojis[Math.floor(Math.random() * emojis.length)]
+    };
+    setFloatingHearts((prev) => [...prev.slice(-6), newHeart]);
+
+    setTimeout(() => {
+      setFloatingHearts((prev) => prev.filter((h) => h.id !== newHeart.id));
+    }, 1100);
+  };
+
+  const handlePet = (e?: React.MouseEvent) => {
     if (!activeBeast) return;
     sounds.playPurr();
-    setPettingFeedback(true);
-    setTimeout(() => setPettingFeedback(false), 500);
+    setAnimationClass('interactive-beast-bounce');
+    setTimeout(() => setAnimationClass(''), 550);
+
+    let clickX = 130;
+    let clickY = 100;
+    if (e) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      clickX = e.clientX - rect.left;
+      clickY = e.clientY - rect.top;
+    }
+    spawnFloatingHeart(clickX, clickY);
+
+    const emotes = [
+      `Purrs contently and nuzzles your fingers!`,
+      `Wiggles with joy! Affection +5`,
+      `Leans into your gentle petting!`,
+      `Beams with magical trust and happiness!`
+    ];
+    setEmoteBubble(emotes[Math.floor(Math.random() * emotes.length)]);
 
     confetti({
-      particleCount: 18,
+      particleCount: 16,
       spread: 45,
-      origin: { y: 0.4 },
+      origin: { y: 0.45 },
       colors: ['#f43f5e', '#ec4899', '#fbbf24']
+    });
+
+    onPetBeast(activeBeast.beastObj.instanceId);
+  };
+
+  const handleBrush = () => {
+    if (!activeBeast) return;
+    sounds.playPlayfulBounce();
+    setAnimationClass('interactive-beast-wiggle');
+    setTimeout(() => setAnimationClass(''), 600);
+
+    spawnFloatingHeart(120, 90);
+    spawnFloatingHeart(140, 110);
+    setEmoteBubble(`Groomed! Feathers & fur shine with golden luster!`);
+
+    confetti({
+      particleCount: 22,
+      spread: 55,
+      origin: { y: 0.45 },
+      colors: ['#fbbf24', '#fde047', '#38bdf8']
+    });
+
+    onPetBeast(activeBeast.beastObj.instanceId);
+    if (onShowToast) {
+      onShowToast('Bond Strengthened!', `Groomed ${activeBeast.beast.name} (+5 Bond XP)`, 'success');
+    }
+  };
+
+  const handlePlayTrick = () => {
+    if (!activeBeast) return;
+    sounds.playWandCast('masterful');
+    sounds.playCreatureCry((activeBeast.beast.cryFreq || 440) * 1.15);
+    setAnimationClass('interactive-beast-bounce');
+    setTimeout(() => setAnimationClass(''), 650);
+
+    spawnFloatingHeart(130, 80);
+    spawnFloatingHeart(110, 120);
+    setEmoteBubble(`Magnificent trick! ${activeBeast.beast.name} does a joyful aerial spin!`);
+
+    confetti({
+      particleCount: 28,
+      spread: 70,
+      origin: { y: 0.45 },
+      colors: ['#c084fc', '#38bdf8', '#34d399', '#fde047']
     });
 
     onPetBeast(activeBeast.beastObj.instanceId);
@@ -79,14 +181,31 @@ export default function SuitcaseSanctuary({
     const multiplier = (isFavorite ? 1.8 : 1.0) * (hero.bonusTreatEffect || 1.0);
     const xpGain = Math.round((treat.bondXP || 30) * multiplier);
 
+    setAnimationClass('interactive-beast-bounce');
+    setTimeout(() => setAnimationClass(''), 550);
+    spawnFloatingHeart(130, 90);
+
+    setEmoteBubble(
+      isFavorite
+        ? `Adored their favorite treat (${treat.name})! HUGE +${xpGain} Bond XP!`
+        : `Munched happily on ${treat.name}! +${xpGain} Bond XP`
+    );
+
     confetti({
-      particleCount: 25,
+      particleCount: 30,
       spread: 60,
       origin: { y: 0.45 },
       colors: ['#34d399', '#fbbf24', '#f43f5e']
     });
 
     onFeedBeast(activeBeast.beastObj.instanceId, treatKey, xpGain);
+    if (onShowToast) {
+      onShowToast(
+        isFavorite ? 'Favorite Treat Fed!' : 'Treat Enjoyed!',
+        `Gained +${xpGain} Bond XP with ${activeBeast.beast.name}`,
+        'success'
+      );
+    }
   };
 
   const handleSaveName = () => {
@@ -132,7 +251,7 @@ export default function SuitcaseSanctuary({
           )}
           <div>
             <h1 className="font-cinzel title-glow" style={{ fontSize: '1.2rem', color: '#fef08a', fontWeight: 800 }}>
-              {activeBeast ? 'Beast Care Sanctuary' : 'Newt\'s Suitcase Sanctuary'}
+              {activeBeast ? 'Beast Care Sanctuary' : "Newt's Suitcase Sanctuary"}
             </h1>
             <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
               {activeBeast ? activeBeast.beast.species : `${suitcase.length} Fantastic Beasts Protected`}
@@ -162,45 +281,54 @@ export default function SuitcaseSanctuary({
             ))}
           </div>
 
-          {/* Beast Cards Grid */}
+          {/* Beasts Collection Grid */}
           <div
             style={{
               flex: 1,
-              padding: '8px 16px 100px',
+              padding: '8px 16px 90px',
               overflowY: 'auto',
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
               gap: '12px'
             }}
           >
             {filteredBeasts.length === 0 ? (
-              <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '60px 20px', color: '#94a3b8' }}>
-                <div style={{ fontSize: '48px', marginBottom: '12px' }}>🦉</div>
-                <div className="font-cinzel" style={{ fontSize: '1.1rem', color: '#fde047', fontWeight: 700 }}>
-                  No Beasts In This Habitat Yet
+              <div
+                style={{
+                  gridColumn: '1 / -1',
+                  textAlign: 'center',
+                  padding: '60px 20px',
+                  color: '#94a3b8'
+                }}
+              >
+                <div style={{ fontSize: '42px', marginBottom: '12px' }}>🧳</div>
+                <div className="font-cinzel" style={{ fontSize: '1.1rem', color: '#fbbf24', fontWeight: 700 }}>
+                  No Beasts in this Habitat
                 </div>
-                <p style={{ fontSize: '0.85rem', marginTop: '6px' }}>
-                  Explore the map, trace disturbances in town, and capture beasts to build your collection!
-                </p>
+                <div style={{ fontSize: '0.82rem', marginTop: '6px' }}>
+                  Cast charms in the wild map to rescue creatures into your suitcase!
+                </div>
               </div>
             ) : (
               filteredBeasts.map((b) => {
                 const beastData = BEASTS.find((bd) => bd.id === b.beastId) || BEASTS[0];
-                const hasMark = !!b.mark;
                 const isBuddy = buddyInstanceId === b.instanceId;
+                const hasMark = !!b.mark;
+
                 return (
                   <div
                     key={b.instanceId}
                     onClick={() => handleSelectBeast(b)}
                     className="glass-card"
                     style={{
-                      padding: '12px',
+                      padding: '12px 8px',
                       display: 'flex',
                       flexDirection: 'column',
                       alignItems: 'center',
                       cursor: 'pointer',
                       border: isBuddy ? '2px solid #38bdf8' : hasMark ? `1.5px solid ${b.mark?.color}` : '1px solid var(--border-gold)',
-                      boxShadow: isBuddy ? '0 0 16px rgba(56, 189, 248, 0.5)' : hasMark ? `0 0 14px ${b.mark?.glow}` : 'none'
+                      boxShadow: isBuddy ? '0 0 16px rgba(56, 189, 248, 0.5)' : hasMark ? `0 0 14px ${b.mark?.glow}` : 'none',
+                      transition: 'transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)'
                     }}
                   >
                     <div style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -245,7 +373,7 @@ export default function SuitcaseSanctuary({
           </div>
         </div>
       ) : (
-        /* Detailed Beast Care Room */
+        /* Detailed Interactive Beast Care Room */
         <div
           style={{
             flex: 1,
@@ -312,7 +440,8 @@ export default function SuitcaseSanctuary({
                   marginTop: '8px',
                   borderColor: activeBeast.beastObj.mark.color,
                   color: activeBeast.beastObj.mark.color,
-                  boxShadow: `0 0 12px ${activeBeast.beastObj.mark.glow}`
+                  boxShadow: `0 0 12px ${activeBeast.beastObj.mark.glow}`,
+                  animation: 'golden-shimmer 2s infinite ease-in-out'
                 }}
               >
                 <span>{activeBeast.beastObj.mark.icon}</span>
@@ -341,7 +470,7 @@ export default function SuitcaseSanctuary({
             </div>
           </div>
 
-          {/* Central Interactive Sprite */}
+          {/* Central Interactive Sprite with Floating Heart Particles & Touch Reaction */}
           <div
             onClick={handlePet}
             style={{
@@ -355,10 +484,51 @@ export default function SuitcaseSanctuary({
               userSelect: 'none'
             }}
           >
+            {/* Dynamic Emote Speech Bubble */}
+            {emoteBubble && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '-12px',
+                  background: 'rgba(15, 23, 42, 0.95)',
+                  border: '1.5px solid #fbbf24',
+                  borderRadius: '12px',
+                  padding: '6px 12px',
+                  fontSize: '0.74rem',
+                  color: '#fef08a',
+                  fontWeight: 600,
+                  boxShadow: '0 4px 14px rgba(0,0,0,0.6)',
+                  zIndex: 15,
+                  maxWidth: '240px',
+                  textAlign: 'center',
+                  animation: 'slideDown 0.25s ease'
+                }}
+              >
+                {emoteBubble}
+              </div>
+            )}
+
+            {/* Floating Heart / Sparkle Particles */}
+            {floatingHearts.map((fh) => (
+              <div
+                key={fh.id}
+                style={{
+                  position: 'absolute',
+                  left: `${fh.x}px`,
+                  top: `${fh.y}px`,
+                  fontSize: '24px',
+                  pointerEvents: 'none',
+                  animation: 'beast-heart-float 1s forwards ease-out',
+                  zIndex: 20
+                }}
+              >
+                {fh.emoji}
+              </div>
+            ))}
+
             <div
-              className="animate-float"
+              className={`animate-float ${animationClass}`}
               style={{
-                transform: pettingFeedback ? 'scale(1.12)' : 'scale(1)',
                 transition: 'transform 0.15s ease'
               }}
             >
@@ -366,11 +536,11 @@ export default function SuitcaseSanctuary({
                 src={activeBeast.beast.sprite}
                 alt={activeBeast.beast.name}
                 style={{
-                  width: '220px',
-                  height: '220px',
+                  width: '210px',
+                  height: '210px',
                   objectFit: 'contain',
                   filter: activeBeast.beastObj.mark
-                    ? `drop-shadow(0 0 16px ${activeBeast.beastObj.mark.color})`
+                    ? `drop-shadow(0 0 18px ${activeBeast.beastObj.mark.color})`
                     : 'drop-shadow(0 12px 24px rgba(0,0,0,0.6))'
                 }}
               />
@@ -384,7 +554,7 @@ export default function SuitcaseSanctuary({
                 border: '1px solid rgba(245, 158, 11, 0.4)',
                 borderRadius: 'var(--radius-full)',
                 padding: '4px 12px',
-                fontSize: '0.75rem',
+                fontSize: '0.74rem',
                 color: '#fde047',
                 display: 'flex',
                 alignItems: 'center',
@@ -392,8 +562,41 @@ export default function SuitcaseSanctuary({
               }}
             >
               <Smile size={14} />
-              <span>Tap or Stroke to Pet</span>
+              <span>Tap or Stroke to Bond</span>
             </div>
+          </div>
+
+          {/* Dedicated Tactile Bonding Actions Bar */}
+          <div style={{ display: 'flex', gap: '8px', width: '100%', maxWidth: '380px', justifyContent: 'center' }}>
+            <button
+              onClick={(e) => handlePet(e)}
+              className="btn-secondary"
+              style={{ flex: 1, padding: '8px 4px', fontSize: '0.75rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}
+              title="Stroke and cuddle"
+            >
+              <Heart size={16} color="#ec4899" />
+              <span>Pet (+5 XP)</span>
+            </button>
+
+            <button
+              onClick={handleBrush}
+              className="btn-secondary"
+              style={{ flex: 1, padding: '8px 4px', fontSize: '0.75rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}
+              title="Groom fur and feathers"
+            >
+              <Sparkles size={16} color="#fbbf24" />
+              <span>Groom (+5 XP)</span>
+            </button>
+
+            <button
+              onClick={handlePlayTrick}
+              className="btn-secondary"
+              style={{ flex: 1, padding: '8px 4px', fontSize: '0.75rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}
+              title="Teach mini-trick"
+            >
+              <Wand2 size={16} color="#38bdf8" />
+              <span>Trick (+5 XP)</span>
+            </button>
           </div>
 
           {/* Treat Feeding Bar */}

@@ -117,6 +117,25 @@ export interface Quest {
   isDaily?: boolean;
 }
 
+export interface Spell {
+  id: string;
+  name: string;
+  incantation: string;
+  description: string;
+  effectiveTypes: string[];
+  color: string;
+  glow: string;
+  icon: string;
+  bonusRate: number;
+}
+
+export interface ToastNotification {
+  id: string;
+  title?: string;
+  message: string;
+  type: 'info' | 'success' | 'warning' | 'error' | 'energy' | 'mark';
+}
+
 export interface GameSettings {
   soundEnabled: boolean;
   driveMode: boolean;
@@ -148,6 +167,7 @@ export interface GameState {
   suitcase: CapturedBeast[];
   seenBeasts: Record<string, number>;
   caughtBeasts: Record<string, number>;
+  attemptedDisturbances: Record<string, { status: 'captured' | 'fled' | 'escaped'; timestamp: number }>;
   activeLureUntil: number | null;
   stats: GameStats;
   quests: Quest[];

@@ -3,6 +3,8 @@ import { Footprints, Heart, Sparkles, Plus } from 'lucide-react';
 import { CapturedBeast, Beast } from '../types';
 import { BEASTS } from '../data/beastsData';
 
+import { sounds } from '../services/soundService';
+
 interface BuddyWidgetProps {
   buddyInstance: CapturedBeast | null;
   buddyProgressKm: number;
@@ -18,6 +20,7 @@ export default function BuddyWidget({
   totalSteps,
   onOpenBuddySelect
 }: BuddyWidgetProps) {
+  const [bouncing, setBouncing] = React.useState(false);
   const beastData: Beast | undefined = buddyInstance
     ? BEASTS.find((b) => b.id === buddyInstance.beastId)
     : undefined;
@@ -25,10 +28,19 @@ export default function BuddyWidget({
   const targetKm = 1.0;
   const progressPercent = Math.min(100, Math.round((buddyProgressKm / targetKm) * 100));
 
+  const handleClick = () => {
+    if (buddyInstance) {
+      setBouncing(true);
+      sounds.playPlayfulBounce();
+      setTimeout(() => setBouncing(false), 550);
+    }
+    onOpenBuddySelect();
+  };
+
   return (
     <div
-      onClick={onOpenBuddySelect}
-      className="glass-panel"
+      onClick={handleClick}
+      className={`glass-panel ${bouncing ? 'interactive-beast-bounce' : ''}`}
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -37,9 +49,10 @@ export default function BuddyWidget({
         borderRadius: 'var(--radius-full)',
         cursor: 'pointer',
         boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
-        border: '1.5px solid var(--border-gold-bright)'
+        border: '1.5px solid var(--border-gold-bright)',
+        transition: 'transform 0.15s ease'
       }}
-      title={buddyInstance ? 'View Buddy Companion Status' : 'Choose a Buddy Companion'}
+      title={buddyInstance ? 'Interact with Buddy Companion' : 'Choose a Buddy Companion'}
     >
       {/* Buddy Avatar or Add icon */}
       <div

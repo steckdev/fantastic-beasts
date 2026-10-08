@@ -83,6 +83,7 @@ const DEFAULT_STATE: GameState = {
   suitcase: [],
   seenBeasts: {},
   caughtBeasts: {},
+  attemptedDisturbances: {},
   activeLureUntil: null,
   stats: {
     totalEncounters: 0,
@@ -103,6 +104,8 @@ const DEFAULT_STATE: GameState = {
     mapStyle: 'marauder'
   }
 };
+
+const DISTURBANCES_KEY = 'fantastic_beasts_disturbances_v2';
 
 export function loadGameState(): GameState {
   try {
@@ -126,6 +129,7 @@ export function loadGameState(): GameState {
       ...parsed,
       lastDailyReset: today,
       quests,
+      attemptedDisturbances: parsed.attemptedDisturbances || {},
       inventory: { ...DEFAULT_STATE.inventory, ...(parsed.inventory || {}) },
       stats: { ...DEFAULT_STATE.stats, ...(parsed.stats || {}) },
       settings: { ...DEFAULT_STATE.settings, ...(parsed.settings || {}) }
@@ -141,5 +145,30 @@ export function saveGameState(state: GameState): void {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch (err) {
     console.error('Error saving game state:', err);
+  }
+}
+
+export function saveActiveDisturbances(disturbances: any[]): void {
+  try {
+    localStorage.setItem(DISTURBANCES_KEY, JSON.stringify(disturbances));
+  } catch (err) {
+    console.error('Error saving disturbances:', err);
+  }
+}
+
+export function loadActiveDisturbances(): any[] {
+  try {
+    const raw = localStorage.getItem(DISTURBANCES_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    const now = Date.now();
+    // Only return non-expired disturbances
+    if (Array.isArray(parsed)) {
+      return parsed.filter((d: any) => d && d.expiresAt && d.expiresAt > now);
+    }
+    return [];
+  } catch (err) {
+    console.error('Error loading disturbances:', err);
+    return [];
   }
 }

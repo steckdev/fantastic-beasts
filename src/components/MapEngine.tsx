@@ -5,6 +5,7 @@ import { getDistanceMeters } from '../services/locationService';
 import { HEROES } from '../data/heroesData';
 import { Disturbance, Waypoint, CapturedBeast, Beast } from '../types';
 import { BEASTS } from '../data/beastsData';
+import { sounds } from '../services/soundService';
 import BuddyWidget from './BuddyWidget';
 
 interface MapEngineProps {
@@ -142,22 +143,36 @@ export default function MapEngine({
         html: `
           <div style="
             position: relative;
-            width: 38px;
-            height: 38px;
+            width: 40px;
+            height: 40px;
             border-radius: 50%;
             border: 2px solid #38bdf8;
-            box-shadow: 0 0 12px rgba(56, 189, 248, 0.6);
+            box-shadow: 0 0 14px rgba(56, 189, 248, 0.7);
             background: #0f172a;
             display: flex;
             align-items: center;
             justify-content: center;
+            cursor: pointer;
             animation: float 2.5s ease-in-out infinite;
           ">
-            <img src="${buddyBeast.sprite}" style="width: 30px; height: 30px; object-fit: contain;" alt="${buddyBeast.name}" />
+            <img src="${buddyBeast.sprite}" style="width: 32px; height: 32px; object-fit: contain;" alt="${buddyBeast.name}" />
+            <div style="
+              position: absolute;
+              bottom: -4px;
+              right: -4px;
+              font-size: 10px;
+              background: #ec4899;
+              border-radius: 50%;
+              width: 14px;
+              height: 14px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+            ">💖</div>
           </div>
         `,
-        iconSize: [38, 38],
-        iconAnchor: [19, 19]
+        iconSize: [40, 40],
+        iconAnchor: [20, 20]
       });
 
       if (!buddyMarkerRef.current) {
@@ -166,6 +181,12 @@ export default function MapEngine({
         buddyMarkerRef.current.setLatLng(buddyLatLng);
         buddyMarkerRef.current.setIcon(buddyIcon);
       }
+
+      buddyMarkerRef.current.off('click');
+      buddyMarkerRef.current.on('click', () => {
+        sounds.playPlayfulBounce();
+        onOpenBuddySelect();
+      });
     } else if (buddyMarkerRef.current) {
       buddyMarkerRef.current.remove();
       buddyMarkerRef.current = null;
@@ -289,7 +310,7 @@ export default function MapEngine({
               height: 40px;
               border-radius: 50%;
               background: #0f172a;
-              border: 2px solid ${hasMark ? '#fde047' : distObj.auraColor};
+              border: 2px solid ${distObj.auraColor};
               box-shadow: 0 0 14px ${distObj.auraColor};
               display: flex;
               align-items: center;
@@ -297,17 +318,6 @@ export default function MapEngine({
               overflow: hidden;
             ">
               <img src="${distObj.beast.sprite}" style="width: 32px; height: 32px; object-fit: contain;" alt="${distObj.beast.name}" />
-              ${
-                hasMark
-                  ? `<div style="
-                      position: absolute;
-                      top: 1px;
-                      right: 1px;
-                      font-size: 10px;
-                      filter: drop-shadow(0 0 3px #fbbf24);
-                    ">${distObj.mark?.icon || '✨'}</div>`
-                  : ''
-              }
             </div>
 
             <div style="

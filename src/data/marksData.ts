@@ -112,11 +112,12 @@ export const MARKS: Mark[] = [
 ];
 
 export function rollMark(bonusMultiplier: number = 1.0): Mark | null {
-  // Chance to have ANY mark: base 28% * bonusMultiplier
-  const hasMarkChance = 0.28 * bonusMultiplier;
+  // True Chase Rarity: Base ~6.5% mark spawn rate (1 in 15 beasts)
+  // Queenie or specialized lures can elevate this up to ~12-16%
+  const hasMarkChance = Math.min(0.25, 0.065 * bonusMultiplier);
   if (Math.random() > hasMarkChance) return null;
 
-  // Weighted roll among marks
+  // Weighted roll among marks (Mythic is extremely rare)
   const totalWeight = MARKS.reduce((sum, m) => sum + m.chance, 0);
   let rand = Math.random() * totalWeight;
   for (const mark of MARKS) {

@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import confetti from 'canvas-confetti';
-import { Wand2, X, Heart } from 'lucide-react';
+import { Wand2, X, Heart, Sparkles, Wind, Flame, Droplets, Zap, ShieldAlert } from 'lucide-react';
 import { sounds } from '../services/soundService';
 import { ITEMS } from '../data/itemsData';
-import { Disturbance, Hero, Mark, Item } from '../types';
+import { SPELLS, getSpellAffinity } from '../data/spellsData';
+import { Disturbance, Hero, Mark, Item, Spell } from '../types';
 
 interface EncounterModalProps {
   disturbance: Disturbance;
@@ -11,7 +12,9 @@ interface EncounterModalProps {
   inventory: Record<string, number>;
   onConsumeItem: (itemKey: string, amount?: number) => void;
   onCaptureSuccess: (data: { beastId: string; cp: number; mark: Mark | null }) => void;
+  onFlee: (disturbanceId: string) => void;
   onClose: () => void;
+  onShowToast?: (title: string, message: string, type: 'info' | 'success' | 'warning' | 'error' | 'energy' | 'mark') => void;
 }
 
 export default function EncounterModal({
@@ -20,28 +23,45 @@ export default function EncounterModal({
   inventory,
   onConsumeItem,
   onCaptureSuccess,
-  onClose
+  onFlee,
+  onClose,
+  onShowToast
 }: EncounterModalProps) {
   const { beast, cp, mark } = disturbance;
   const [phase, setPhase] = useState<'encounter' | 'casting' | 'capturing' | 'caught' | 'fled'>('encounter');
   const [wobbleCount, setWobbleCount] = useState<number>(0);
   const [treatBonus, setTreatBonus] = useState<number>(0);
   const [showTreatDrawer, setShowTreatDrawer] = useState<boolean>(false);
+  const [showSpellDrawer, setShowSpellDrawer] = useState<boolean>(false);
   const [castAccuracy, setCastAccuracy] = useState<'fair' | 'good' | 'great' | 'masterful' | null>(null);
   const [isDrawing, setIsDrawing] = useState<boolean>(false);
+
+  // Default to a type-effective spell if one matches, otherwise Flipendo
+  const initialSpell =
+    SPELLS.find((s) => s.effectiveTypes.includes(beast.type)) ||
+    SPELLS.find((s) => s.id === 'flipendo') ||
+    SPELLS[0];
+  const [selectedSpell, setSelectedSpell] = useState<Spell>(initialSpell);
+
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const strokePointsRef = useRef<{ x: number; y: number }[]>([]);
+
+  const spellAffinity = getSpellAffinity(selectedSpell, beast.type);
+  const spellBonusMultiplier = spellAffinity.isSuperEffective ? 1.25 : 1.0;
 
   // Calculate current catch probability (0.0 to 1.0)
   const baseCatch = beast.baseCatchRate;
   const heroBonus = hero.catchAccuracyBonus || 1.0;
   const accuracyMultiplier =
     castAccuracy === 'masterful' ? 1.7 : castAccuracy === 'great' ? 1.4 : castAccuracy === 'good' ? 1.2 : 1.0;
-  const currentCatchChance = Math.min(0.95, (baseCatch + treatBonus) * heroBonus * accuracyMultiplier);
+  const currentCatchChance = Math.min(
+    0.95,
+    (baseCatch + treatBonus) * heroBonus * accuracyMultiplier * spellBonusMultiplier
+  );
 
   // Play creature cry on encounter open
   useEffect(() => {
-    sounds.playCreatureCry(beast.cryFreq);
+    sounds.playCreatureCry(beast.cryFreq || 440);
   }, [beast]);
 
   // Wand gesture canvas handling
@@ -86,11 +106,11 @@ export default function EncounterModal({
     const y = clientY - rect.top;
     strokePointsRef.current.push({ x, y });
 
-    // Draw glowing wand beam
-    ctx.lineWidth = 6;
-    ctx.strokeStyle = '#fde047';
-    ctx.shadowColor = '#fbbf24';
-    ctx.shadowBlur = 12;
+    // Draw glowing wand beam styled by the selected spell
+    ctx.lineWidth = 7;
+    ctx.strokeStyle = selectedSpell.color;
+    ctx.shadowColor = selectedSpell.color;
+    ctx.shadowBlur = 16;
 
     const pts = strokePointsRef.current;
     if (pts.length > 1) {
@@ -108,7 +128,9 @@ export default function EncounterModal({
     if (pts.length < 5) return;
 
     if (inventory.spell_energy <= 0) {
-      alert('You are out of Spell Energy! Visit a nearby Magical Inn to replenish.');
+      if (onShowToast) {
+        onShowToast('Out of Spell Energy', 'Visit a nearby Magical Inn or spin a Waypoint to replenish!', 'energy');
+      }
       return;
     }
 
@@ -128,7 +150,9 @@ export default function EncounterModal({
 
   const handleQuickCast = () => {
     if (inventory.spell_energy <= 0) {
-      alert('You are out of Spell Energy! Visit a nearby Magical Inn to replenish.');
+      if (onShowToast) {
+        onShowToast('Out of Spell Energy', 'Visit a nearby Magical Inn or spin a Waypoint to replenish!', 'energy');
+      }
       return;
     }
     onConsumeItem('spell_energy', 1);
@@ -173,6 +197,9 @@ export default function EncounterModal({
         if (mark) {
           setTimeout(() => {
             sounds.playMarkReveal();
+            if (onShowToast) {
+              onShowToast('Rare Mark Discovered!', `You captured a beast with ${mark.name}: ${mark.title}!`, 'mark');
+            }
           }, 600);
         }
         onCaptureSuccess({
@@ -181,14 +208,29 @@ export default function EncounterModal({
           mark
         });
       } else {
+        // Genuine Breakout & Flee Check
+        // Threat levels 3-5 have higher risk of fleeing into the night
+        const baseFlee = beast.fleeRate || 0.12;
+        const threatFactor = (beast.dangerRating - 1) * 0.06;
+        const effectiveFleeRate = Math.min(0.65, Math.max(0.06, baseFlee + threatFactor - treatBonus * 0.3));
         const fleeRoll = Math.random();
-        if (fleeRoll < beast.fleeRate) {
+
+        if (fleeRoll < effectiveFleeRate) {
           setPhase('fled');
-          sounds.playCreatureCry(beast.cryFreq * 0.7);
+          sounds.playFlee();
+          sounds.playCreatureCry((beast.cryFreq || 440) * 0.65);
+          onFlee(disturbance.id);
+          if (onShowToast) {
+            onShowToast('Beast Fled!', `${beast.name} escaped into the shadows!`, 'warning');
+          }
         } else {
+          // Broke free but still in encounter
           setPhase('encounter');
           setCastAccuracy(null);
-          sounds.playCreatureCry(beast.cryFreq * 1.1);
+          sounds.playCreatureCry((beast.cryFreq || 440) * 1.1);
+          if (onShowToast) {
+            onShowToast('Broke Free!', `${beast.name} resisted the suitcase vortex! Feed a treat or cast again!`, 'warning');
+          }
         }
       }
     }, 2800);
@@ -210,6 +252,10 @@ export default function EncounterModal({
       origin: { y: 0.4 },
       colors: ['#f43f5e', '#ec4899', '#fbbf24']
     });
+
+    if (onShowToast) {
+      onShowToast('Treat Accepted!', `Fed ${treat.name}. Capture chance raised!`, 'success');
+    }
   };
 
   const getRingColor = (): string => {
@@ -274,18 +320,28 @@ export default function EncounterModal({
               <span>{inventory.spell_energy || 0}</span>
             </div>
 
-            <button onClick={onClose} className="btn-icon" style={{ width: '36px', height: '36px' }} title="Flee encounter">
+            <button
+              onClick={onClose}
+              className="btn-icon"
+              style={{ width: '36px', height: '36px' }}
+              title="Leave encounter"
+            >
               <X size={18} />
             </button>
           </div>
         </div>
 
         {/* Beast Name & Title */}
-        <div style={{ textAlign: 'center', zIndex: 10, marginTop: '4px' }}>
+        <div style={{ textAlign: 'center', zIndex: 10, marginTop: '2px' }}>
           <h2 className="font-cinzel title-glow" style={{ fontSize: '1.45rem', fontWeight: 800, color: '#fef08a', letterSpacing: '0.04em' }}>
             {beast.name}
           </h2>
-          <p style={{ fontSize: '0.8rem', color: '#94a3b8' }}>{beast.species}</p>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+            <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>{beast.species}</span>
+            <span style={{ fontSize: '0.72rem', color: '#38bdf8', background: 'rgba(56, 189, 248, 0.15)', padding: '1px 6px', borderRadius: '4px', border: '1px solid rgba(56, 189, 248, 0.3)' }}>
+              Type: {beast.type}
+            </span>
+          </div>
 
           {mark && (
             <div
@@ -294,7 +350,8 @@ export default function EncounterModal({
                 marginTop: '6px',
                 borderColor: mark.color,
                 color: mark.color,
-                boxShadow: `0 0 12px ${mark.glow}`
+                boxShadow: `0 0 12px ${mark.glow}`,
+                animation: 'golden-shimmer 2s infinite ease-in-out'
               }}
             >
               <span>{mark.icon}</span>
@@ -307,8 +364,8 @@ export default function EncounterModal({
         <div
           style={{
             position: 'relative',
-            width: '280px',
-            height: '280px',
+            width: '270px',
+            height: '270px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -319,8 +376,8 @@ export default function EncounterModal({
             <div
               style={{
                 position: 'absolute',
-                width: '230px',
-                height: '230px',
+                width: '220px',
+                height: '220px',
                 borderRadius: '50%',
                 border: `3px dashed ${getRingColor()}`,
                 animation: 'pulse-ring 2s infinite ease-in-out',
@@ -335,8 +392,8 @@ export default function EncounterModal({
                 src={beast.sprite}
                 alt={beast.name}
                 style={{
-                  width: '210px',
-                  height: '210px',
+                  width: '200px',
+                  height: '200px',
                   objectFit: 'contain',
                   filter: mark ? `drop-shadow(0 0 16px ${mark.color})` : 'drop-shadow(0 8px 16px rgba(0,0,0,0.6))'
                 }}
@@ -388,7 +445,8 @@ export default function EncounterModal({
                     marginTop: '12px',
                     padding: '8px 12px',
                     borderColor: mark.color,
-                    color: mark.color
+                    color: mark.color,
+                    boxShadow: `0 0 16px ${mark.glow}`
                   }}
                 >
                   <div style={{ fontWeight: 800, fontSize: '0.85rem' }}>
@@ -402,17 +460,85 @@ export default function EncounterModal({
 
           {/* Fled View */}
           {phase === 'fled' && (
-            <div style={{ textAlign: 'center' }}>
+            <div style={{ textAlign: 'center', padding: '16px' }}>
               <div style={{ fontSize: '64px', marginBottom: '8px' }}>💨</div>
-              <h3 className="font-cinzel" style={{ fontSize: '1.3rem', color: '#ef4444', fontWeight: 800 }}>
-                THE BEAST VANISHED!
+              <h3 className="font-cinzel" style={{ fontSize: '1.35rem', color: '#ef4444', fontWeight: 800 }}>
+                THE BEAST HAS FLED!
               </h3>
-              <p style={{ color: '#94a3b8', fontSize: '0.85rem', marginTop: '4px' }}>
-                It escaped into the shadows of the town. Keep searching!
+              <p style={{ color: '#cbd5e1', fontSize: '0.85rem', marginTop: '6px', lineHeight: 1.4 }}>
+                {beast.name} broke free from the vortex and vanished into the enchanted mists.
               </p>
+              <div
+                style={{
+                  marginTop: '10px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  fontSize: '0.75rem',
+                  color: '#94a3b8',
+                  background: 'rgba(0,0,0,0.4)',
+                  padding: '4px 10px',
+                  borderRadius: '6px'
+                }}
+              >
+                <ShieldAlert size={14} color="#f87171" />
+                <span>Marked as Fled in your disturbance registry</span>
+              </div>
             </div>
           )}
         </div>
+
+        {/* Wand Spell & Type Affinity Bar */}
+        {phase === 'encounter' && (
+          <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '0.78rem', color: '#fbbf24', fontWeight: 700 }}>
+                  Active Spell:
+                </span>
+                <span
+                  style={{
+                    fontSize: '0.78rem',
+                    color: selectedSpell.color,
+                    fontWeight: 800,
+                    textShadow: `0 0 8px ${selectedSpell.glow}`
+                  }}
+                >
+                  {selectedSpell.icon} {selectedSpell.name}
+                </span>
+              </div>
+
+              <button
+                onClick={() => setShowSpellDrawer(!showSpellDrawer)}
+                className="btn-secondary"
+                style={{ padding: '2px 8px', fontSize: '0.72rem', borderRadius: '6px' }}
+              >
+                Switch Spell
+              </button>
+            </div>
+
+            {/* Affinity Badge */}
+            {spellAffinity.isSuperEffective && (
+              <div
+                style={{
+                  background: 'rgba(16, 185, 129, 0.2)',
+                  border: '1px solid #10b981',
+                  borderRadius: '6px',
+                  padding: '3px 8px',
+                  fontSize: '0.72rem',
+                  color: '#6ee7b7',
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+              >
+                <Sparkles size={12} />
+                <span>Super Effective vs {beast.type}! (+25% Catch Power)</span>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Gesture Drawing Canvas */}
         {phase === 'encounter' && (
@@ -420,20 +546,21 @@ export default function EncounterModal({
             style={{
               position: 'relative',
               width: '100%',
-              height: '160px',
-              border: '1px dashed rgba(251, 191, 36, 0.4)',
+              height: '140px',
+              border: `1.5px dashed ${selectedSpell.color}`,
               borderRadius: 'var(--radius-md)',
-              background: 'rgba(15, 23, 42, 0.65)',
+              background: 'rgba(15, 23, 42, 0.75)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              overflow: 'hidden'
+              overflow: 'hidden',
+              boxShadow: `inset 0 0 16px ${selectedSpell.glow}`
             }}
           >
             <canvas
               ref={canvasRef}
               width={380}
-              height={160}
+              height={140}
               onMouseDown={handleStartDraw}
               onMouseMove={handleDrawMove}
               onMouseUp={handleEndDraw}
@@ -442,16 +569,18 @@ export default function EncounterModal({
               onTouchEnd={handleEndDraw}
               style={{ position: 'absolute', inset: 0, touchAction: 'none', cursor: 'crosshair', zIndex: 10 }}
             />
-            <div style={{ pointerEvents: 'none', textAlign: 'center', color: '#94a3b8', fontSize: '0.82rem' }}>
-              <Wand2 size={24} style={{ margin: '0 auto 4px', color: '#fbbf24', opacity: 0.8 }} />
+            <div style={{ pointerEvents: 'none', textAlign: 'center', color: '#94a3b8', fontSize: '0.8rem' }}>
+              <Wand2 size={22} style={{ margin: '0 auto 4px', color: selectedSpell.color }} />
               <div>Trace Wand Spell Across Box</div>
-              <div style={{ fontSize: '0.72rem', color: '#64748b' }}>Flipendo • Arresto Momentum</div>
+              <div style={{ fontSize: '0.72rem', color: selectedSpell.color, fontWeight: 700 }}>
+                "{selectedSpell.incantation}"
+              </div>
             </div>
           </div>
         )}
 
         {/* Bottom Action Controls */}
-        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '10px', zIndex: 10 }}>
+        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '8px', zIndex: 10 }}>
           {phase === 'encounter' && (
             <>
               <div style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -500,21 +629,112 @@ export default function EncounterModal({
           )}
         </div>
 
+        {/* Spell Selector Drawer */}
+        {showSpellDrawer && (
+          <div
+            className="glass-panel"
+            style={{
+              position: 'absolute',
+              bottom: '75px',
+              left: '10px',
+              right: '10px',
+              padding: '14px',
+              background: 'rgba(11, 15, 25, 0.98)',
+              border: '2px solid var(--border-gold-bright)',
+              zIndex: 35,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '8px',
+              boxShadow: '0 10px 30px rgba(0,0,0,0.9)'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span className="font-cinzel" style={{ fontSize: '0.9rem', color: '#fbbf24', fontWeight: 700 }}>
+                Select Wand Spell Charm
+              </span>
+              <button
+                onClick={() => setShowSpellDrawer(false)}
+                style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '18px' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '220px', overflowY: 'auto' }}>
+              {SPELLS.map((spell) => {
+                const aff = getSpellAffinity(spell, beast.type);
+                const isSelected = selectedSpell.id === spell.id;
+                return (
+                  <button
+                    key={spell.id}
+                    onClick={() => {
+                      setSelectedSpell(spell);
+                      setShowSpellDrawer(false);
+                      sounds.playWandCast('good');
+                    }}
+                    className="glass-card"
+                    style={{
+                      padding: '8px 10px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      border: isSelected ? `2px solid ${spell.color}` : aff.isSuperEffective ? '1.5px solid #10b981' : '1px solid rgba(255,255,255,0.1)',
+                      background: isSelected ? 'rgba(30, 41, 59, 0.9)' : 'rgba(15, 23, 42, 0.8)',
+                      cursor: 'pointer',
+                      textAlign: 'left'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '20px' }}>{spell.icon}</span>
+                      <div>
+                        <div style={{ fontSize: '0.82rem', fontWeight: 700, color: spell.color }}>
+                          {spell.name}
+                        </div>
+                        <div style={{ fontSize: '0.68rem', color: '#94a3b8' }}>
+                          "{spell.incantation}"
+                        </div>
+                      </div>
+                    </div>
+
+                    {aff.isSuperEffective && (
+                      <span
+                        style={{
+                          fontSize: '0.68rem',
+                          color: '#6ee7b7',
+                          fontWeight: 800,
+                          background: 'rgba(16, 185, 129, 0.25)',
+                          padding: '2px 6px',
+                          borderRadius: '4px',
+                          border: '1px solid #10b981'
+                        }}
+                      >
+                        Super Effective (+25%)
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Treat Selector Drawer */}
         {showTreatDrawer && (
           <div
             className="glass-panel"
             style={{
               position: 'absolute',
-              bottom: '80px',
-              left: '12px',
-              right: '12px',
-              padding: '16px',
-              background: 'rgba(15, 23, 42, 0.95)',
-              zIndex: 30,
+              bottom: '75px',
+              left: '10px',
+              right: '10px',
+              padding: '14px',
+              background: 'rgba(11, 15, 25, 0.98)',
+              border: '2px solid var(--border-gold-bright)',
+              zIndex: 35,
               display: 'flex',
               flexDirection: 'column',
-              gap: '8px'
+              gap: '8px',
+              boxShadow: '0 10px 30px rgba(0,0,0,0.9)'
             }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -523,7 +743,7 @@ export default function EncounterModal({
               </span>
               <button
                 onClick={() => setShowTreatDrawer(false)}
-                style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer' }}
+                style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '18px' }}
               >
                 ✕
               </button>

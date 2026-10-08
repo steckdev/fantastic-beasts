@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import confetti from 'canvas-confetti';
-import { loadGameState, saveGameState } from './services/storageService';
+import { loadGameState, saveGameState, saveActiveDisturbances, loadActiveDisturbances } from './services/storageService';
 import { generateDisturbances, generateWaypoints, fetchNearbyRealPOIs, getDistanceMeters } from './services/locationService';
 import { sounds } from './services/soundService';
 import { motionService } from './services/motionService';
 import { HEROES } from './data/heroesData';
 import { ITEMS } from './data/itemsData';
 import { BEASTS } from './data/beastsData';
-import { Disturbance, Waypoint, CapturedBeast, Mark, GameState, Hero, Item } from './types';
+import { Disturbance, Waypoint, CapturedBeast, Mark, GameState, Hero, Item, ToastNotification } from './types';
 
 import MapEngine from './components/MapEngine';
 import EncounterModal from './components/EncounterModal';
@@ -18,6 +18,7 @@ import CharacterSelect from './components/CharacterSelect';
 import QuestsModal from './components/QuestsModal';
 import SettingsModal from './components/SettingsModal';
 import Navigation from './components/Navigation';
+import Toast from './components/Toast';
 
 // Default initial coordinates (New York City / Woolworth Building MACUSA Headquarters)
 const DEFAULT_LAT = 40.7124;
@@ -36,6 +37,18 @@ export default function App() {
   const [showHeroSelect, setShowHeroSelect] = useState<boolean>(!gameState.hasChosenHero);
   const [showQuests, setShowQuests] = useState<boolean>(false);
   const [showSettings, setShowSettings] = useState<boolean>(false);
+
+  // In-game Toast Notification System (replaces native window.alert)
+  const [activeToast, setActiveToast] = useState<ToastNotification | null>(null);
+
+  const showToast = (title: string, message: string, type: ToastNotification['type'] = 'info') => {
+    setActiveToast({
+      id: `toast_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      title,
+      message,
+      type
+    });
+  };
 
   // Active Lure Countdown
   const [lureTimeLeft, setLureTimeLeft] = useState<number>(0);
@@ -59,94 +72,75 @@ export default function App() {
 
   // Request Real Geolocation & Motion
   useEffect(() => {
-    let watchId: number | null = null;
-    if ('geolocation' in navigator && !gameState.settings.useVirtualGPS) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const newPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-          setPlayerPos(newPos);
-          lastPosRef.current = newPos;
-        },
-        (err) => {
-          console.log('Using default magical coordinates (Woolworth MACUSA HQ):', err.message);
-        },
-        { enableHighAccuracy: true, timeout: 8000 }
-      );
+    if (!navigator.geolocation || gameState.settings?.useVirtualGPS) return;
 
-      watchId = navigator.geolocation.watchPosition(
-        (pos) => {
-          const newLat = pos.coords.latitude;
-          const newLng = pos.coords.longitude;
-          handleMovementDelta(newLat, newLng);
-          setPlayerPos({ lat: newLat, lng: newLng });
-        },
-        (err) => console.log('Geolocation watch error:', err.message),
-        { enableHighAccuracy: true, maximumAge: 3000, timeout: 10000 }
-      );
-    }
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        const { latitude, longitude } = pos.coords;
+        handleMovementDelta(latitude, longitude);
+        setPlayerPos({ lat: latitude, lng: longitude });
+      },
+      (err) => {
+        console.warn('Geolocation unavailable or denied, falling back to simulated GPS:', err.message);
+      },
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
+    );
 
-    // Step counting motion listener
-    motionService.requestPermission().then((granted) => {
-      if (granted) {
-        motionService.startListening((steps) => {
-          setGameState((prev) => ({
-            ...prev,
-            totalSteps: steps
-          }));
-        });
-      }
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, [gameState.settings?.useVirtualGPS]);
+
+  // Motion Service Listener for Walking & Pedometer
+  useEffect(() => {
+    motionService.startListening((_steps) => {
+      handleStepTaken(1);
     });
 
     return () => {
-      if (watchId !== null) navigator.geolocation.clearWatch(watchId);
       motionService.stopListening();
     };
-  }, [gameState.settings.useVirtualGPS]);
+  }, []);
 
-  // Handle Walking Distance Delta & Buddy km rewards
+  // Handle player movement delta
   const handleMovementDelta = (newLat: number, newLng: number) => {
-    const prev = lastPosRef.current;
-    const distM = getDistanceMeters(prev.lat, prev.lng, newLat, newLng);
+    const distMeters = getDistanceMeters(lastPosRef.current.lat, lastPosRef.current.lng, newLat, newLng);
     lastPosRef.current = { lat: newLat, lng: newLng };
 
-    // Ignore jitter < 2m or impossible speed > 200m/s
-    if (distM < 2 || distM > 1000) return;
+    // Ignore teleports or micro-jitter (<2m or >500m)
+    if (distMeters < 2 || distMeters > 500) return;
 
-    const deltaKm = distM / 1000;
+    const kmDelta = distMeters / 1000;
+    accumulateDistance(kmDelta);
+  };
 
+  // Handle steps from device motion
+  const handleStepTaken = (deltaSteps: number) => {
+    const kmDelta = (deltaSteps * 0.75) / 1000;
+    accumulateDistance(kmDelta);
+  };
+
+  // Accumulate walking distance
+  const accumulateDistance = (kmDelta: number) => {
     setGameState((prev) => {
-      const newTotalKm = prev.totalKmWalked + deltaKm;
-      let newBuddyProg = prev.buddyKmProgress + deltaKm;
+      const newTotalKm = +(prev.totalKmWalked + kmDelta).toFixed(3);
+      const newBuddyProg = +(prev.buddyKmProgress + kmDelta).toFixed(3);
 
-      // Check for 1.0 km Buddy Milestone
       let newInventory = { ...prev.inventory };
       let newSuitcase = [...prev.suitcase];
       let quests = [...prev.quests];
 
-      if (prev.buddyInstanceId && newBuddyProg >= 1.0) {
-        newBuddyProg -= 1.0;
-        const buddy = prev.suitcase.find((b) => b.instanceId === prev.buddyInstanceId);
-        if (buddy) {
-          const beast = BEASTS.find((b) => b.id === buddy.beastId);
-          // Reward favorite treat
-          const favTreatKey = Object.keys(ITEMS).find(
-            (k) => ITEMS[k].name === beast?.favoriteTreat
-          ) || 'treat_brioche';
-
-          newInventory[favTreatKey] = (newInventory[favTreatKey] || 0) + 1;
+      // 1.0 km Buddy Milestone
+      if (newBuddyProg >= 1.0) {
+        if (prev.buddyInstanceId) {
+          const treatKeys = ['treat_brioche', 'treat_gilded_knut', 'treat_woodlice', 'treat_moon_pellets'];
+          const rewardTreat = treatKeys[Math.floor(Math.random() * treatKeys.length)];
+          newInventory[rewardTreat] = (newInventory[rewardTreat] || 0) + 1;
           newInventory.spell_energy = Math.min(100, (newInventory.spell_energy || 0) + 15);
 
-          // Add Bond XP
           newSuitcase = newSuitcase.map((b) => {
-            if (b.instanceId === buddy.instanceId) {
-              const newXP = (b.bondXP || 0) + 30;
-              let level = b.bondLevel;
-              let finalXP = newXP;
-              if (newXP >= 100 && level < 10) {
-                level += 1;
-                finalXP = newXP - 100;
-              }
-              return { ...b, bondLevel: level, bondXP: finalXP };
+            if (b.instanceId === prev.buddyInstanceId) {
+              const newXP = (b.bondXP || 0) + 20;
+              const newLevel = Math.min(10, Math.floor(newXP / 100) + 1);
+              return { ...b, bondXP: newXP, bondLevel: newLevel, kmWalked: (b.kmWalked || 0) + 1.0 };
             }
             return b;
           });
@@ -154,6 +148,7 @@ export default function App() {
           // Celebration
           sounds.playMarkReveal();
           confetti({ particleCount: 30, spread: 50, origin: { y: 0.2 } });
+          showToast('Buddy Milestone Reached!', 'Walked 1.0 km! Buddy brought you a treat & 15 Spell Energy!', 'success');
 
           // Update walk quest
           quests = quests.map((q) => {
@@ -166,7 +161,7 @@ export default function App() {
       return {
         ...prev,
         totalKmWalked: newTotalKm,
-        buddyKmProgress: newBuddyProg,
+        buddyKmProgress: newBuddyProg >= 1.0 ? +(newBuddyProg - 1.0).toFixed(3) : newBuddyProg,
         inventory: newInventory,
         suitcase: newSuitcase,
         quests,
@@ -178,11 +173,27 @@ export default function App() {
     });
   };
 
-  // Spawn initial disturbances and waypoints
+  // Initialize and persist disturbances with deterministic attempt tracking
   useEffect(() => {
     const markMult = hero.bonusMarkChance || 1.0;
-    const initialDist = generateDisturbances(playerPos.lat, playerPos.lng, 8, markMult);
-    setDisturbances(initialDist);
+    const stored = loadActiveDisturbances();
+    const attempted = gameState.attemptedDisturbances || {};
+    const now = Date.now();
+
+    // Filter out already attempted or expired disturbances from storage
+    const validStored = stored.filter(
+      (d: Disturbance) => d && d.id && !attempted[d.id] && d.expiresAt && d.expiresAt > now
+    );
+
+    if (validStored.length >= 6) {
+      setDisturbances(validStored);
+    } else {
+      const needed = Math.max(3, 8 - validStored.length);
+      const fresh = generateDisturbances(playerPos.lat, playerPos.lng, needed, markMult);
+      const combined = [...validStored, ...fresh];
+      setDisturbances(combined);
+      saveActiveDisturbances(combined);
+    }
 
     const initialWaypoints = generateWaypoints(playerPos.lat, playerPos.lng, 6);
     setWaypoints(initialWaypoints);
@@ -192,24 +203,34 @@ export default function App() {
         setWaypoints(realPOIs);
       }
     });
-  }, [playerPos.lat, playerPos.lng, hero.bonusMarkChance]);
+  }, []);
 
-  // Periodic disturbance spawner
+  // Periodic disturbance spawner & refresh cycle (checks every 45s)
   useEffect(() => {
     const timer = setInterval(() => {
       const now = Date.now();
+      const attempted = gameState.attemptedDisturbances || {};
+
       setDisturbances((prev) => {
-        const remaining = prev.filter((d) => d.expiresAt > now);
-        if (remaining.length < 6) {
-          const fresh = generateDisturbances(playerPos.lat, playerPos.lng, 3, hero.bonusMarkChance || 1.0);
-          return [...remaining, ...fresh];
+        // Prune expired or attempted
+        const remaining = prev.filter((d) => d.expiresAt > now && !attempted[d.id]);
+        const targetCount = gameState.activeLureUntil && gameState.activeLureUntil > now ? 9 : 6;
+
+        if (remaining.length < targetCount) {
+          const needed = targetCount - remaining.length;
+          const fresh = generateDisturbances(playerPos.lat, playerPos.lng, needed, hero.bonusMarkChance || 1.0);
+          const updated = [...remaining, ...fresh];
+          saveActiveDisturbances(updated);
+          return updated;
         }
+
+        saveActiveDisturbances(remaining);
         return remaining;
       });
     }, 45000);
 
     return () => clearInterval(timer);
-  }, [playerPos, hero.bonusMarkChance]);
+  }, [playerPos, hero.bonusMarkChance, gameState.activeLureUntil, gameState.attemptedDisturbances]);
 
   // Lure timer countdown
   useEffect(() => {
@@ -223,6 +244,7 @@ export default function App() {
       setLureTimeLeft(remainingSecs);
       if (remainingSecs <= 0) {
         setGameState((prev) => ({ ...prev, activeLureUntil: null }));
+        showToast('Suitcase Lure Expired', 'The enchanted aroma has dispersed.', 'info');
       }
     }, 1000);
 
@@ -237,10 +259,22 @@ export default function App() {
 
   // Select Disturbance from Map
   const handleSelectDisturbance = (distObj: Disturbance, inRange: boolean, distMeters: number) => {
-    if (!inRange) {
-      alert(`Too far! Move closer (${distMeters}m away) to investigate this magical trace.`);
+    // Check if disturbance was already attempted
+    if (gameState.attemptedDisturbances && gameState.attemptedDisturbances[distObj.id]) {
+      showToast('Trace Dissipated', 'This magical disturbance has already departed.', 'info');
+      setDisturbances((prev) => prev.filter((d) => d.id !== distObj.id));
       return;
     }
+
+    if (!inRange) {
+      showToast(
+        'Out of Interaction Range',
+        `Too far! Move closer (${distMeters}m away) to investigate this magical trace.`,
+        'warning'
+      );
+      return;
+    }
+
     setActiveEncounter(distObj);
     sounds.playWandCast('good');
 
@@ -307,6 +341,10 @@ export default function App() {
           ...prev.caughtBeasts,
           [beastId]: (prev.caughtBeasts[beastId] || 0) + 1
         },
+        attemptedDisturbances: {
+          ...prev.attemptedDisturbances,
+          ...(activeEncounter ? { [activeEncounter.id]: { status: 'captured' as const, timestamp: Date.now() } } : {})
+        },
         stats: {
           ...prev.stats,
           totalCaptures: prev.stats.totalCaptures + 1,
@@ -317,7 +355,48 @@ export default function App() {
     });
 
     if (activeEncounter) {
-      setDisturbances((prev) => prev.filter((d) => d.id !== activeEncounter.id));
+      setDisturbances((prev) => {
+        const remaining = prev.filter((d) => d.id !== activeEncounter.id);
+        saveActiveDisturbances(remaining);
+        return remaining;
+      });
+    }
+  };
+
+  // Beast Flee Handler (breaks free and runs away)
+  const handleFlee = (disturbanceId: string) => {
+    setGameState((prev) => ({
+      ...prev,
+      attemptedDisturbances: {
+        ...prev.attemptedDisturbances,
+        [disturbanceId]: { status: 'fled' as const, timestamp: Date.now() }
+      }
+    }));
+
+    setDisturbances((prev) => {
+      const remaining = prev.filter((d) => d.id !== disturbanceId);
+      saveActiveDisturbances(remaining);
+      return remaining;
+    });
+  };
+
+  // Voluntarily leaving/fleeing encounter without capture
+  const handleCloseEncounter = () => {
+    if (activeEncounter) {
+      setGameState((prev) => ({
+        ...prev,
+        attemptedDisturbances: {
+          ...prev.attemptedDisturbances,
+          [activeEncounter.id]: { status: 'escaped' as const, timestamp: Date.now() }
+        }
+      }));
+
+      setDisturbances((prev) => {
+        const remaining = prev.filter((d) => d.id !== activeEncounter.id);
+        saveActiveDisturbances(remaining);
+        return remaining;
+      });
+      setActiveEncounter(null);
     }
   };
 
@@ -353,26 +432,25 @@ export default function App() {
     setWaypoints((prev) =>
       prev.map((wp) => (wp.id === waypointId ? { ...wp, cooldownUntil: Date.now() + 5 * 60 * 1000 } : wp))
     );
+
+    showToast('Waypoint Harvested!', 'Recovered Spell Energy and Wizarding Provisions!', 'success');
   };
 
-  // Feed Beast in Suitcase
+  // Beast Feeding in Sanctuary
   const handleFeedBeast = (instanceId: string, treatKey: string, xpGain: number) => {
     handleConsumeItem(treatKey, 1);
 
     setGameState((prev) => {
+      let isBuddy = false;
       const updatedSuitcase = prev.suitcase.map((b) => {
         if (b.instanceId === instanceId) {
+          if (prev.buddyInstanceId === instanceId) isBuddy = true;
           const newXP = (b.bondXP || 0) + xpGain;
-          let level = b.bondLevel || 1;
-          let finalXP = newXP;
-          if (newXP >= 100 && level < 10) {
-            level += 1;
-            finalXP = newXP - 100;
-          }
+          const newLevel = Math.min(10, Math.floor(newXP / 100) + 1);
           return {
             ...b,
-            bondLevel: level,
-            bondXP: finalXP,
+            bondXP: newXP,
+            bondLevel: newLevel,
             timesFed: (b.timesFed || 0) + 1
           };
         }
@@ -380,7 +458,7 @@ export default function App() {
       });
 
       const updatedQuests = prev.quests.map((q) => {
-        if (q.id === 'daily_feed_buddy' || q.id === 'quest_feed_beasts') return { ...q, current: q.current + 1 };
+        if (q.id === 'daily_feed_buddy' && isBuddy) return { ...q, current: q.current + 1 };
         return q;
       });
 
@@ -396,22 +474,17 @@ export default function App() {
     });
   };
 
-  // Pet Beast in Suitcase
+  // Beast Petting in Sanctuary
   const handlePetBeast = (instanceId: string) => {
     setGameState((prev) => {
       const updatedSuitcase = prev.suitcase.map((b) => {
         if (b.instanceId === instanceId) {
-          const newXP = (b.bondXP || 0) + 10;
-          let level = b.bondLevel || 1;
-          let finalXP = newXP;
-          if (newXP >= 100 && level < 10) {
-            level += 1;
-            finalXP = newXP - 100;
-          }
+          const newXP = (b.bondXP || 0) + 5;
+          const newLevel = Math.min(10, Math.floor(newXP / 100) + 1);
           return {
             ...b,
-            bondLevel: level,
-            bondXP: finalXP,
+            bondXP: newXP,
+            bondLevel: newLevel,
             timesPetted: (b.timesPetted || 0) + 1
           };
         }
@@ -427,6 +500,7 @@ export default function App() {
       ...prev,
       suitcase: prev.suitcase.map((b) => (b.instanceId === instanceId ? { ...b, nickname: newName } : b))
     }));
+    showToast('Name Updated', `Companion is now named "${newName}"!`, 'info');
   };
 
   // Set Buddy Companion
@@ -436,7 +510,7 @@ export default function App() {
       buddyInstanceId: instanceId
     }));
     sounds.playPurr();
-    alert('Buddy companion updated! They will now walk with you on the map.');
+    showToast('Buddy Companion Assigned', 'They will now walk alongside you on the magical map!', 'success');
   };
 
   // Claim Quest Reward
@@ -453,6 +527,7 @@ export default function App() {
         quests: prev.quests.map((q) => (q.id === questId ? { ...q, claimed: true } : q))
       };
     });
+    showToast('Task Completed!', 'Claimed Ministry bounty rewards!', 'success');
   };
 
   // Reset Game
@@ -464,27 +539,38 @@ export default function App() {
   // Activate Lure
   const handleActivateLure = () => {
     if ((gameState.inventory.beast_lure || 0) <= 0) {
-      alert('You need an Enchanted Suitcase Lure! Spin Waypoints or complete MACUSA tasks to obtain one.');
+      showToast('Suitcase Lure Needed', 'Spin Waypoints or complete MACUSA tasks to obtain one!', 'warning');
       return;
     }
     handleConsumeItem('beast_lure', 1);
     sounds.playMarkReveal();
 
     const lureDist = generateDisturbances(playerPos.lat, playerPos.lng, 4, (hero.bonusMarkChance || 1.0) * 1.8);
-    setDisturbances((prev) => [...lureDist, ...prev]);
+    setDisturbances((prev) => {
+      const combined = [...lureDist, ...prev];
+      saveActiveDisturbances(combined);
+      return combined;
+    });
 
     setGameState((prev) => ({
       ...prev,
       activeLureUntil: Date.now() + 15 * 60 * 1000
     }));
 
-    alert('Enchanted Suitcase Lure activated! 4 rare Fantastic Beasts have gathered at your location for 15 minutes.');
+    showToast(
+      'Enchanted Lure Activated!',
+      '4 rare Fantastic Beasts have gathered at your location for 15 minutes!',
+      'success'
+    );
   };
 
   const unreadTasksCount = gameState.quests.filter((q) => q.current >= q.target && !q.claimed).length;
 
   return (
     <div style={{ position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden' }}>
+      {/* Toast Notification Banner System */}
+      <Toast toast={activeToast} onDismiss={() => setActiveToast(null)} />
+
       {/* 1. Main Map View */}
       <MapEngine
         playerPos={playerPos}
@@ -516,9 +602,9 @@ export default function App() {
         activeLureTimeLeft={lureTimeLeft}
       />
 
-      {/* 2. Fullscreen Tabs Overlay */}
+      {/* 2. Top-Level Tab Views */}
       {currentTab === 'suitcase' && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 600 }}>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 500 }}>
           <SuitcaseSanctuary
             suitcase={gameState.suitcase}
             inventory={gameState.inventory}
@@ -529,12 +615,13 @@ export default function App() {
             onPetBeast={handlePetBeast}
             onRenameBeast={handleRenameBeast}
             onClose={() => setCurrentTab('map')}
+            onShowToast={showToast}
           />
         </div>
       )}
 
       {currentTab === 'guide' && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 600 }}>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 500 }}>
           <FieldGuide
             caughtBeasts={gameState.caughtBeasts}
             seenBeasts={gameState.seenBeasts}
@@ -551,7 +638,9 @@ export default function App() {
           inventory={gameState.inventory}
           onConsumeItem={handleConsumeItem}
           onCaptureSuccess={handleCaptureSuccess}
-          onClose={() => setActiveEncounter(null)}
+          onFlee={handleFlee}
+          onClose={handleCloseEncounter}
+          onShowToast={showToast}
         />
       )}
 
@@ -594,6 +683,7 @@ export default function App() {
             setShowSettings(false);
             if (currentTab === 'settings') setCurrentTab('map');
           }}
+          onShowToast={showToast}
         />
       )}
 
@@ -608,6 +698,7 @@ export default function App() {
               hasChosenHero: true
             }));
             setShowHeroSelect(false);
+            showToast('Hero Selected', `You are exploring as ${HEROES.find(h => h.id === chosenId)?.name}!`, 'info');
           }}
         />
       )}

@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "deploy": "npm run build && npx netlify deploy --prod --dir=dist"
+    "deploy": "npm run build && npx -y netlify deploy --prod --dir=dist"
   },
   "dependencies": {
     "canvas-confetti": "^1.9.4",

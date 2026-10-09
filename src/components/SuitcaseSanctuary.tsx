@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { BEASTS } from '../data/beastsData';
 import { ITEMS } from '../data/itemsData';
+import { getMoMClassification } from '../data/ministryClassification';
 import { sounds } from '../services/soundService';
 import { CapturedBeast, Hero, Beast } from '../types';
 
@@ -524,6 +525,33 @@ export default function SuitcaseSanctuary({
                 )}
               </div>
             )}
+
+            {/* Creature Threat Tier & Rarity Badge */}
+            <div style={{ marginTop: '6px', display: 'flex', justifyContent: 'center' }}>
+              {(() => {
+                const mom = getMoMClassification(activeBeast.beast.classification);
+                return (
+                  <span
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      padding: '3px 10px',
+                      borderRadius: '9999px',
+                      background: mom.bgColor,
+                      border: `1px solid ${mom.borderColor}`,
+                      color: mom.color,
+                      fontSize: '0.74rem',
+                      fontWeight: 800,
+                      letterSpacing: '0.4px',
+                      boxShadow: `0 0 10px ${mom.bgColor}`
+                    }}
+                  >
+                    <span>{mom.badgeText}</span>
+                  </span>
+                );
+              })()}
+            </div>
 
             {/* Set as Walking Buddy button */}
             <div style={{ marginTop: '6px' }}>

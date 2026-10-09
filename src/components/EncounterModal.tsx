@@ -312,8 +312,7 @@ export default function EncounterModal({
                 gap: '5px'
               }}
             >
-              <span>{mom.sealIcon}</span>
-              <span>{mom.title}</span>
+              <span>{mom.badgeText}</span>
             </span>
             <span
               style={{
@@ -469,7 +468,7 @@ export default function EncounterModal({
                 {beast.name.toUpperCase()} CAPTURED!
               </h3>
               <p style={{ color: '#cbd5e1', fontSize: '0.82rem', marginTop: '2px' }}>
-                CP {cp} · {mom.title} · {beast.habitat}
+                CP {cp} · {mom.title} ({mom.stars}) · {beast.habitat}
               </p>
 
               {/* Reward Highlights - Knuts & XP only, no free energy */}

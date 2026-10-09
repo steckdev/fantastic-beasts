@@ -337,7 +337,7 @@ export default function RaidModal({
               {bossDef.name.toUpperCase()}
             </h2>
             <div style={{ fontSize: '0.82rem', color: '#cbd5e1' }}>
-              {mom.title} · <span style={{ color: '#38bdf8' }}>Exclusive Legendary</span>
+              {mom.title} ({mom.stars}) · <span style={{ color: '#38bdf8' }}>Exclusive Legendary Raid</span>
             </div>
 
             {/* Raid Quota Pill */}
@@ -549,7 +549,7 @@ export default function RaidModal({
               {bossDef.name.toUpperCase()} CAPTURED!
             </h3>
             <p style={{ color: '#cbd5e1', fontSize: '0.82rem', marginTop: '2px' }}>
-              CP {bossCp} · {mom.title} · Ancient Citadel
+              CP {bossCp} · {mom.title} ({mom.stars}) · Ancient Citadel
             </p>
 
             {/* Raid Bounty Highlights */}

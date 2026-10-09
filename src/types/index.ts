@@ -100,7 +100,7 @@ export interface Disturbance {
 export interface Waypoint {
   id: string;
   name: string;
-  type: 'inn' | 'greenhouse' | 'fortress';
+  type: 'inn' | 'greenhouse' | 'fortress' | 'apothecary';
   icon: string;
   color: string;
   lat: number;

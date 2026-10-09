@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X } from 'lucide-react';
 import { BEASTS } from '../data/beastsData';
 import { SPELLS } from '../data/spellsData';
+import { getMoMClassification } from '../data/ministryClassification';
 import { sounds } from '../services/soundService';
 import { Beast, MinistryClassification } from '../types';
 
@@ -15,7 +16,14 @@ export default function FieldGuide({ caughtBeasts, seenBeasts, onClose }: FieldG
   const [selectedClass, setSelectedClass] = useState<string>('ALL');
   const [inspectBeast, setInspectBeast] = useState<Beast | null>(null);
 
-  const classes: ('ALL' | MinistryClassification)[] = ['ALL', 'XX', 'XXX', 'XXXX', 'XXXXX'];
+  const classes: { id: 'ALL' | MinistryClassification; label: string }[] = [
+    { id: 'ALL', label: 'All Tiers' },
+    { id: 'XXXXX', label: '👑 Apex (★★★★★)' },
+    { id: 'XXXX', label: '🔮 Mythic (★★★★☆)' },
+    { id: 'XXX', label: '⚡ Formidable (★★★☆☆)' },
+    { id: 'XX', label: '🌿 Curious (★★☆☆☆)' },
+    { id: 'X', label: '🐾 Familiar (★☆☆☆☆)' }
+  ];
 
   const filteredBeasts = BEASTS.filter((b) => {
     if (selectedClass === 'ALL') return true;
@@ -66,16 +74,16 @@ export default function FieldGuide({ caughtBeasts, seenBeasts, onClose }: FieldG
         </button>
       </div>
 
-      {/* Ministry Classification Filter Tabs */}
+      {/* Magical Threat Tier Filter Tabs */}
       <div style={{ padding: '12px 16px', display: 'flex', gap: '8px', overflowX: 'auto', whiteSpace: 'nowrap' }}>
         {classes.map((cls) => (
           <button
-            key={cls}
-            onClick={() => setSelectedClass(cls)}
-            className={selectedClass === cls ? 'btn-magical' : 'btn-secondary'}
+            key={cls.id}
+            onClick={() => setSelectedClass(cls.id)}
+            className={selectedClass === cls.id ? 'btn-magical' : 'btn-secondary'}
             style={{ padding: '6px 14px', fontSize: '0.78rem', borderRadius: 'var(--radius-full)' }}
           >
-            {cls === 'ALL' ? 'All Classes' : `Class ${cls}`}
+            {cls.label}
           </button>
         ))}
       </div>
@@ -190,17 +198,30 @@ export default function FieldGuide({ caughtBeasts, seenBeasts, onClose }: FieldG
               </button>
             </div>
 
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <span className={`threat-badge threat-${inspectBeast.dangerRating}`}>
-                Threat Level {inspectBeast.dangerRating}
-              </span>
-              <span className="glass-card" style={{ padding: '3px 8px', fontSize: '0.75rem', color: '#fbbf24' }}>
-                Ministry Class {inspectBeast.classification}
-              </span>
-              <span className="glass-card" style={{ padding: '3px 8px', fontSize: '0.75rem', color: '#38bdf8' }}>
-                Type: {inspectBeast.type}
-              </span>
-            </div>
+            {(() => {
+              const mom = getMoMClassification(inspectBeast.classification);
+              return (
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                  <span
+                    style={{
+                      padding: '3px 10px',
+                      borderRadius: '9999px',
+                      background: mom.bgColor,
+                      border: `1px solid ${mom.borderColor}`,
+                      color: mom.color,
+                      fontSize: '0.75rem',
+                      fontWeight: 800,
+                      boxShadow: `0 0 10px ${mom.bgColor}`
+                    }}
+                  >
+                    {mom.badgeText}
+                  </span>
+                  <span className="glass-card" style={{ padding: '3px 8px', fontSize: '0.75rem', color: '#38bdf8' }}>
+                    Type: {inspectBeast.type}
+                  </span>
+                </div>
+              );
+            })()}
 
             <div className="glass-card" style={{ padding: '10px 14px', width: '100%', textAlign: 'left', fontSize: '0.82rem' }}>
               <div style={{ marginBottom: '6px' }}>

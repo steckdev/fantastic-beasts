@@ -288,7 +288,7 @@ export default function MapEngine({
               width: 38px;
               height: 38px;
               border-radius: 12px;
-              background: ${isCooldown ? 'rgba(75, 85, 99, 0.85)' : wp.type === 'fortress' ? 'linear-gradient(135deg, #7e22ce, #c084fc)' : wp.type === 'greenhouse' ? 'linear-gradient(135deg, #059669, #10b981)' : 'linear-gradient(135deg, #b45309, #f59e0b)'};
+              background: ${isCooldown ? 'rgba(75, 85, 99, 0.85)' : wp.type === 'fortress' ? 'linear-gradient(135deg, #7e22ce, #c084fc)' : wp.type === 'greenhouse' ? 'linear-gradient(135deg, #059669, #10b981)' : wp.type === 'apothecary' ? 'linear-gradient(135deg, #6b21a8, #a855f7)' : 'linear-gradient(135deg, #b45309, #f59e0b)'};
               border: 2px solid ${isCooldown ? '#9ca3af' : wp.type === 'fortress' ? '#e9d5ff' : '#fef08a'};
               box-shadow: 0 4px 18px ${isCooldown ? 'rgba(0,0,0,0.5)' : wp.type === 'fortress' ? 'rgba(192, 132, 252, 0.8)' : 'rgba(245, 158, 11, 0.6)'};
               display: flex;
@@ -296,7 +296,7 @@ export default function MapEngine({
               justify-content: center;
               font-size: 20px;
             ">
-              ${isCooldown ? '⏳' : wp.type === 'fortress' ? '🏰' : wp.icon}
+              ${isCooldown ? '⏳' : wp.type === 'fortress' ? '🏰' : wp.type === 'apothecary' ? '🧪' : wp.icon}
             </div>
             <div style="
               margin-top: 3px;

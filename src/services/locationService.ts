@@ -102,9 +102,10 @@ export function generateWaypoints(centerLat: number, centerLng: number, count: n
 
     // 1 in 5 (20%) replaces an inn with a Legendary Fortress
     const isFortress = i % 5 === 0;
-    const isGreenhouse = !isFortress && i % 2 === 1;
+    const isGreenhouse = !isFortress && i % 3 === 1;
+    const isApothecary = !isFortress && !isGreenhouse && i % 3 === 2;
 
-    let wpType: 'inn' | 'greenhouse' | 'fortress' = 'inn';
+    let wpType: 'inn' | 'greenhouse' | 'fortress' | 'apothecary' = 'inn';
     let wpName = innNames[i % innNames.length];
     let wpIcon = '🍺';
     let wpColor = '#f59e0b';
@@ -128,9 +129,26 @@ export function generateWaypoints(centerLat: number, centerLng: number, count: n
       };
     } else if (isGreenhouse) {
       wpType = 'greenhouse';
-      wpName = `Herbology Conservatory #${(i % 4) + 1}`;
+      const greenhouseNames = [
+        'Hogwarts Herbology Conservatory',
+        'Professor Sprout\'s Mandrake Greenhouse',
+        'Victorian Botanical Glasshouse',
+        'Enchanted Dittany Nursery'
+      ];
+      wpName = greenhouseNames[i % greenhouseNames.length];
       wpIcon = '🌿';
       wpColor = '#10b981';
+    } else if (isApothecary) {
+      wpType = 'apothecary';
+      const apothecaryNames = [
+        'Slug & Jiggers Cauldron Apothecary',
+        'Dungeon Potions Laboratory',
+        'Ancient Alchemist Cauldron Hearth',
+        'Wiggenweld Restorative Alembic'
+      ];
+      wpName = apothecaryNames[i % apothecaryNames.length];
+      wpIcon = '🧪';
+      wpColor = '#a855f7';
     }
 
     waypoints.push({

@@ -2,7 +2,10 @@ import { MinistryClassification } from '../types';
 
 export interface MoMClassificationInfo {
   code: MinistryClassification;
-  romanNumeral: string;
+  tierNumber: 1 | 2 | 3 | 4 | 5;
+  tierName: string;
+  badgeText: string;
+  stars: string;
   title: string;
   riskLevel: 'Minimal' | 'Low' | 'Moderate' | 'Severe' | 'Lethal';
   color: string;
@@ -16,63 +19,78 @@ export interface MoMClassificationInfo {
 export const MOM_CLASSIFICATIONS: Record<MinistryClassification, MoMClassificationInfo> = {
   X: {
     code: 'X',
-    romanNumeral: 'X',
-    title: 'MoM Class X · Docile',
+    tierNumber: 1,
+    tierName: 'Familiar Creature',
+    badgeText: '🐾 FAMILIAR · ★☆☆☆☆',
+    stars: '★☆☆☆☆',
+    title: 'Familiar Creature',
     riskLevel: 'Minimal',
     color: '#94a3b8',
     bgColor: 'rgba(148, 163, 184, 0.15)',
     borderColor: 'rgba(148, 163, 184, 0.4)',
-    sealIcon: '📜',
-    officialDesc: 'Boring / Harmless',
-    departmentNote: 'Creatures of negligible magical threat. Easily tended by first-year students or non-magical caretakers.'
+    sealIcon: '🐾',
+    officialDesc: 'Gentle & Docile Familiar',
+    departmentNote: 'Gentle creatures cherished by young witches and wizards for everyday companionship.'
   },
   XX: {
     code: 'XX',
-    romanNumeral: 'XX',
-    title: 'MoM Class XX · Harmless',
+    tierNumber: 2,
+    tierName: 'Curious Beast',
+    badgeText: '🌿 CURIOUS · ★★☆☆☆',
+    stars: '★★☆☆☆',
+    title: 'Curious Beast',
     riskLevel: 'Low',
     color: '#34d399',
     bgColor: 'rgba(16, 185, 129, 0.15)',
     borderColor: 'rgba(16, 185, 129, 0.45)',
     sealIcon: '🌿',
-    officialDesc: 'Harmless / May be Domesticated',
-    departmentNote: 'Gentle beasts that rarely cause disturbance. Many make loyal wizarding companions.'
+    officialDesc: 'Enchanted Companion & Trickster',
+    departmentNote: 'Clever and playful creatures that bring luck or friendly mischief to careful handlers.'
   },
   XXX: {
     code: 'XXX',
-    romanNumeral: 'XXX',
-    title: 'MoM Class XXX · Competent Wizard',
+    tierNumber: 3,
+    tierName: 'Formidable Beast',
+    badgeText: '⚡ FORMIDABLE · ★★★☆☆',
+    stars: '★★★☆☆',
+    title: 'Formidable Beast',
     riskLevel: 'Moderate',
     color: '#38bdf8',
     bgColor: 'rgba(56, 189, 248, 0.15)',
     borderColor: 'rgba(56, 189, 248, 0.45)',
-    sealIcon: '⚖️',
-    officialDesc: 'Competent Wizard Should Cope',
-    departmentNote: 'Requires fundamental spellwork and understanding of magical creature temperaments to pacify.'
+    sealIcon: '⚡',
+    officialDesc: 'Spirited & Powerful Beast',
+    departmentNote: 'Spirited wild creatures possessing potent magic that test a wizard\'s reflexes and wandwork.'
   },
   XXXX: {
     code: 'XXXX',
-    romanNumeral: 'XXXX',
-    title: 'MoM Class XXXX · Dangerous Beast',
+    tierNumber: 4,
+    tierName: 'Mythical Beast',
+    badgeText: '🔮 MYTHICAL · ★★★★☆',
+    stars: '★★★★☆',
+    title: 'Mythical Beast',
     riskLevel: 'Severe',
-    color: '#f59e0b',
-    bgColor: 'rgba(245, 158, 11, 0.15)',
-    borderColor: 'rgba(245, 158, 11, 0.45)',
-    sealIcon: '🛡️',
-    officialDesc: 'Dangerous / Specialist Handling Required',
-    departmentNote: 'Possesses immense strength, camouflage, or lethal curses. Handled only by licensed Magizoologists.'
+    color: '#c084fc',
+    bgColor: 'rgba(192, 132, 252, 0.18)',
+    borderColor: 'rgba(192, 132, 252, 0.55)',
+    sealIcon: '🔮',
+    officialDesc: 'Extraordinary Mythical Creature',
+    departmentNote: 'Rare creatures of immense arcane power, extraordinary camouflage, or specialized defenses.'
   },
   XXXXX: {
     code: 'XXXXX',
-    romanNumeral: 'XXXXX',
-    title: 'MoM Class XXXXX · Wizard Killer',
+    tierNumber: 5,
+    tierName: 'Legendary Apex',
+    badgeText: '👑 LEGENDARY APEX · ★★★★★',
+    stars: '★★★★★',
+    title: 'Legendary Apex Beast',
     riskLevel: 'Lethal',
-    color: '#ef4444',
-    bgColor: 'rgba(239, 68, 68, 0.2)',
-    borderColor: 'rgba(239, 68, 68, 0.55)',
-    sealIcon: '⚡',
-    officialDesc: 'Known Wizard Killer / Impossible to Train',
-    departmentNote: 'Apex magical beasts capable of widespread devastation. MoM Beast Division extreme alert protocol.'
+    color: '#fbbf24',
+    bgColor: 'rgba(251, 191, 36, 0.22)',
+    borderColor: 'rgba(251, 191, 36, 0.65)',
+    sealIcon: '👑',
+    officialDesc: 'Supreme Apex Titan',
+    departmentNote: 'Apex mythical creatures of legend whose power commands reverence across the magical world.'
   }
 };
 

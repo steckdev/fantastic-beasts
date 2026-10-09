@@ -6,10 +6,21 @@ export const SPELLS: Spell[] = [
     name: 'Arresto Momentum',
     incantation: 'Arresto Momentum!',
     description: 'The Slowing Charm. Calms kinetic movement and swift terrestrial creatures.',
-    effectiveTypes: ['Beast'],
+    effectiveTypes: ['Beast', 'Equine'],
     color: '#38bdf8',
     glow: 'rgba(56, 189, 248, 0.7)',
     icon: '⏳',
+    bonusRate: 0.25
+  },
+  {
+    id: 'immobilus',
+    name: 'Immobilus',
+    incantation: 'Immobilus!',
+    description: 'The Freezing Charm. Subdues mischievous tricksters and hyperactive woodland sprites in mid-air.',
+    effectiveTypes: ['Humoresque'],
+    color: '#60a5fa',
+    glow: 'rgba(96, 165, 250, 0.7)',
+    icon: '❄️',
     bonusRate: 0.25
   },
   {

@@ -154,6 +154,10 @@ export interface GameSettings {
   useVirtualGPS: boolean;
   googleMapsApiKey?: string;
   mapStyle: 'marauder' | 'parchment' | 'twilight';
+  batterySaver?: boolean;
+  hapticsEnabled?: boolean;
+  autoPinApparate?: boolean;
+  cameraTilt3D?: boolean;
 }
 
 export interface GameStats {

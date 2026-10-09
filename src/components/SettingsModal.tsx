@@ -1,7 +1,19 @@
 import React from 'react';
-import { Settings, Volume2, VolumeX, Car, X, Compass, Navigation } from 'lucide-react';
+import {
+  Settings,
+  Volume2,
+  VolumeX,
+  Car,
+  X,
+  Compass,
+  BatteryCharging,
+  Smartphone,
+  MapPin,
+  Layers
+} from 'lucide-react';
 import { HEROES } from '../data/heroesData';
 import { GameSettings } from '../types';
+import { haptics } from '../services/hapticsService';
 
 interface SettingsModalProps {
   settings: GameSettings;
@@ -92,6 +104,7 @@ export default function SettingsModal({
                   key={s.id}
                   onClick={() => {
                     onUpdateSettings({ mapStyle: s.id });
+                    haptics.light(settings.hapticsEnabled ?? true);
                     if (onShowToast) {
                       onShowToast('Cartography Updated', `Active filter: ${s.label}`, 'info');
                     }
@@ -138,10 +151,36 @@ export default function SettingsModal({
           </div>
           <button
             className="btn-secondary"
-            onClick={() => onUpdateSettings({ soundEnabled: !settings.soundEnabled })}
+            onClick={() => {
+              const nextVal = !settings.soundEnabled;
+              onUpdateSettings({ soundEnabled: nextVal });
+              haptics.light(settings.hapticsEnabled ?? true);
+            }}
             style={{ padding: '6px 12px', fontSize: '0.75rem' }}
           >
             {settings.soundEnabled ? 'Enabled' : 'Muted'}
+          </button>
+        </div>
+
+        {/* Haptic Physical Feedback */}
+        <div className="glass-card" style={{ padding: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <Smartphone color="#c084fc" size={20} />
+            <div>
+              <div style={{ fontSize: '0.86rem', fontWeight: 700, color: '#f8fafc' }}>Haptic Vibration Feedback</div>
+              <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>Sensory pulse on encounters, spells & marks</div>
+            </div>
+          </div>
+          <button
+            className={(settings.hapticsEnabled ?? true) ? 'btn-magical' : 'btn-secondary'}
+            onClick={() => {
+              const nextVal = !(settings.hapticsEnabled ?? true);
+              onUpdateSettings({ hapticsEnabled: nextVal });
+              if (nextVal) haptics.medium(true);
+            }}
+            style={{ padding: '6px 12px', fontSize: '0.75rem' }}
+          >
+            {(settings.hapticsEnabled ?? true) ? 'ON' : 'OFF'}
           </button>
         </div>
 
@@ -156,28 +195,84 @@ export default function SettingsModal({
           </div>
           <button
             className={settings.driveMode ? 'btn-magical' : 'btn-secondary'}
-            onClick={() => onUpdateSettings({ driveMode: !settings.driveMode })}
+            onClick={() => {
+              onUpdateSettings({ driveMode: !settings.driveMode });
+              haptics.light(settings.hapticsEnabled ?? true);
+            }}
             style={{ padding: '6px 12px', fontSize: '0.75rem' }}
           >
             {settings.driveMode ? 'ON' : 'OFF'}
           </button>
         </div>
 
-        {/* Virtual GPS Joystick Toggle */}
+        {/* Battery Saver Mode Toggle */}
         <div className="glass-card" style={{ padding: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Navigation color="#a78bfa" size={20} />
+            <BatteryCharging color="#fbbf24" size={20} />
             <div>
-              <div style={{ fontSize: '0.86rem', fontWeight: 700, color: '#f8fafc' }}>Virtual D-Pad Controls</div>
-              <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>Simulate walking with on-screen broomstick</div>
+              <div style={{ fontSize: '0.86rem', fontWeight: 700, color: '#f8fafc' }}>Battery Saver (Eco Mode)</div>
+              <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>Disables intensive glows & throttles GPS for walks</div>
             </div>
           </div>
           <button
-            className={settings.useVirtualGPS ? 'btn-magical' : 'btn-secondary'}
-            onClick={() => onUpdateSettings({ useVirtualGPS: !settings.useVirtualGPS })}
+            className={settings.batterySaver ? 'btn-magical' : 'btn-secondary'}
+            onClick={() => {
+              const nextVal = !settings.batterySaver;
+              onUpdateSettings({ batterySaver: nextVal });
+              haptics.light(settings.hapticsEnabled ?? true);
+              if (onShowToast) {
+                onShowToast(
+                  nextVal ? 'Battery Saver Active 🔋' : 'Performance Mode Restored',
+                  nextVal ? 'Heavy visual effects & particle loops dimmed.' : 'Full high-fidelity visual fidelity restored.',
+                  'info'
+                );
+              }
+            }}
             style={{ padding: '6px 12px', fontSize: '0.75rem' }}
           >
-            {settings.useVirtualGPS ? 'ON' : 'OFF'}
+            {settings.batterySaver ? 'ON' : 'OFF'}
+          </button>
+        </div>
+
+        {/* Auto-Pin Coordinates on Apparition */}
+        <div className="glass-card" style={{ padding: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <MapPin color="#f43f5e" size={20} />
+            <div>
+              <div style={{ fontSize: '0.86rem', fontWeight: 700, color: '#f8fafc' }}>Apparition Auto-Pin</div>
+              <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>Keep map anchored after teleporting</div>
+            </div>
+          </div>
+          <button
+            className={(settings.autoPinApparate ?? true) ? 'btn-magical' : 'btn-secondary'}
+            onClick={() => {
+              onUpdateSettings({ autoPinApparate: !(settings.autoPinApparate ?? true) });
+              haptics.light(settings.hapticsEnabled ?? true);
+            }}
+            style={{ padding: '6px 12px', fontSize: '0.75rem' }}
+          >
+            {(settings.autoPinApparate ?? true) ? 'ON' : 'OFF'}
+          </button>
+        </div>
+
+        {/* 3D Isometric Tilt Perspective */}
+        <div className="glass-card" style={{ padding: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <Layers color="#10b981" size={20} />
+            <div>
+              <div style={{ fontSize: '0.86rem', fontWeight: 700, color: '#f8fafc' }}>Camera 3D Perspective</div>
+              <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>Dynamic angled 3D view vs 2D top-down</div>
+            </div>
+          </div>
+          <button
+            className={(settings.cameraTilt3D ?? true) ? 'btn-magical' : 'btn-secondary'}
+            onClick={() => {
+              onUpdateSettings({ cameraTilt3D: !(settings.cameraTilt3D ?? true) });
+              haptics.light(settings.hapticsEnabled ?? true);
+            }}
+            style={{ padding: '6px 12px', fontSize: '0.75rem' }}
+          >
+            {(settings.cameraTilt3D ?? true) ? '3D' : '2D'}
           </button>
         </div>
 

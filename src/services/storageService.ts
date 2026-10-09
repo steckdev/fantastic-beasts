@@ -52,10 +52,20 @@ export function generateDailyQuests(): Quest[] {
     {
       id: 'daily_spin_inns',
       title: 'Leyline Harvest',
-      desc: 'Spin 3 Magical Inns or Greenhouses today.',
+      desc: 'Visit 3 Magical Inns, Greenhouses, or Potions Stations today.',
       target: 3,
       current: 0,
       reward: { treat_moon_pellets: 2, knuts: 150 },
+      claimed: false,
+      isDaily: true
+    },
+    {
+      id: 'daily_citadel_raid',
+      title: 'Fortress Citadel Raid',
+      desc: 'Conquer an Ancient Fortress Citadel Raid today.',
+      target: 1,
+      current: 0,
+      reward: { knuts: 250, beast_lure: 1 },
       claimed: false,
       isDaily: true
     }
@@ -101,7 +111,11 @@ const DEFAULT_STATE: GameState = {
     driveMode: false,
     useVirtualGPS: false,
     googleMapsApiKey: '',
-    mapStyle: 'marauder'
+    mapStyle: 'marauder',
+    batterySaver: false,
+    hapticsEnabled: true,
+    autoPinApparate: true,
+    cameraTilt3D: true
   }
 };
 
@@ -122,6 +136,26 @@ export function loadGameState(): GameState {
     // Daily reset check
     if (parsed.lastDailyReset !== today) {
       quests = generateDailyQuests();
+    } else {
+      // Migrate existing quests to new text or add missing daily citadel raid
+      quests = quests.map((q) => {
+        if (q.id === 'daily_spin_inns' && q.desc.includes('Spin')) {
+          return { ...q, desc: 'Visit 3 Magical Inns, Greenhouses, or Potions Stations today.' };
+        }
+        return q;
+      });
+      if (!quests.some((q) => q.id === 'daily_citadel_raid')) {
+        quests.push({
+          id: 'daily_citadel_raid',
+          title: 'Fortress Citadel Raid',
+          desc: 'Conquer an Ancient Fortress Citadel Raid today.',
+          target: 1,
+          current: 0,
+          reward: { knuts: 250, beast_lure: 1 },
+          claimed: false,
+          isDaily: true
+        });
+      }
     }
 
     return {

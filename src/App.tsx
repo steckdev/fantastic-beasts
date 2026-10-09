@@ -3,6 +3,7 @@ import confetti from 'canvas-confetti';
 import { loadGameState, saveGameState, saveActiveDisturbances, loadActiveDisturbances } from './services/storageService';
 import { generateDisturbances, generateWaypoints, fetchNearbyRealPOIs, getDistanceMeters } from './services/locationService';
 import { sounds } from './services/soundService';
+import { haptics } from './services/hapticsService';
 import { motionService } from './services/motionService';
 import { HEROES } from './data/heroesData';
 import { ITEMS } from './data/itemsData';
@@ -83,6 +84,15 @@ export default function App() {
   useEffect(() => {
     sounds.toggleSound(gameState.settings?.soundEnabled ?? true);
   }, [gameState.settings?.soundEnabled]);
+
+  // Battery Saver Low-Power mode class toggle
+  useEffect(() => {
+    if (gameState.settings?.batterySaver) {
+      document.body.classList.add('battery-saver');
+    } else {
+      document.body.classList.remove('battery-saver');
+    }
+  }, [gameState.settings?.batterySaver]);
 
   // Request Real Geolocation & Motion
   useEffect(() => {
@@ -295,8 +305,11 @@ export default function App() {
     const destName = target.type === 'disturbance' ? target.disturbance!.beast.name : target.waypoint!.name;
 
     sounds.playApparition();
+    haptics.apparate(gameState.settings?.hapticsEnabled ?? true);
     setIsApparating(true);
-    setIsLocationPinned(true); // Snap and lock position in place
+    if (gameState.settings?.autoPinApparate !== false) {
+      setIsLocationPinned(true); // Snap and lock position in place
+    }
     confetti({
       particleCount: 50,
       spread: 75,
@@ -436,6 +449,7 @@ export default function App() {
 
     setActiveEncounter(distObj);
     sounds.playWandCast('good');
+    haptics.encounter(gameState.settings?.hapticsEnabled ?? true);
 
     setGameState((prev) => ({
       ...prev,
@@ -472,10 +486,18 @@ export default function App() {
     const today = new Date().toISOString().slice(0, 10);
     setGameState((prev) => {
       const countToday = prev.lastRaidDate === today ? (prev.raidsCompletedToday || 0) : 0;
+      const updatedQuests = prev.quests.map((q) => {
+        if (q.id === 'daily_citadel_raid') {
+          return { ...q, current: Math.min(q.target, q.current + 1) };
+        }
+        return q;
+      });
+
       return {
         ...prev,
         lastRaidDate: today,
         raidsCompletedToday: countToday + 1,
+        quests: updatedQuests,
         stats: {
           ...prev.stats,
           raidsWon: (prev.stats.raidsWon || 0) + 1
@@ -525,6 +547,12 @@ export default function App() {
         ...prev.inventory,
         knuts: (prev.inventory.knuts || 0) + 30
       };
+
+      if (mark) {
+        haptics.mark(gameState.settings?.hapticsEnabled ?? true);
+      } else {
+        haptics.success(gameState.settings?.hapticsEnabled ?? true);
+      }
 
       return {
         ...prev,
@@ -902,6 +930,31 @@ export default function App() {
     }
   };
 
+  // Buy Satchel Item from Diagon Alley Shop
+  const handleBuyBagItem = (itemKey: string, costKnuts: number, count: number = 1) => {
+    if ((gameState.inventory.knuts || 0) < costKnuts) {
+      sounds.playSpellFailure();
+      showToast('Need More Knuts', `You need ${costKnuts} Knuts to purchase this provision.`, 'warning');
+      return;
+    }
+    sounds.playSpinChime();
+    haptics.success(gameState.settings?.hapticsEnabled ?? true);
+    setGameState((prev) => ({
+      ...prev,
+      inventory: {
+        ...prev.inventory,
+        knuts: Math.max(0, (prev.inventory.knuts || 0) - costKnuts),
+        [itemKey]: (prev.inventory[itemKey] || 0) + count
+      }
+    }));
+    const itemDef = ITEMS[itemKey];
+    showToast(
+      'Diagon Alley Purchase',
+      `Acquired ${itemDef?.name || itemKey} (x${count}) for ${costKnuts} Knuts!`,
+      'success'
+    );
+  };
+
   const unreadTasksCount = gameState.quests.filter((q) => q.current >= q.target && !q.claimed).length;
   const todayStr = new Date().toISOString().slice(0, 10);
   const raidsCompletedToday = gameState.lastRaidDate === todayStr ? (gameState.raidsCompletedToday || 0) : 0;
@@ -1145,6 +1198,7 @@ export default function App() {
         <ItemBagModal
           inventory={gameState.inventory}
           onUseItem={handleUseBagItem}
+          onBuyItem={handleBuyBagItem}
           onOpenSanctuary={() => {
             setShowItemBag(false);
             setCurrentTab('suitcase');

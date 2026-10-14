@@ -4,6 +4,7 @@ import { loadGameState, saveGameState, saveActiveDisturbances, loadActiveDisturb
 import { generateDisturbances, generateWaypoints, fetchNearbyRealPOIs, getDistanceMeters } from './services/locationService';
 import { sounds } from './services/soundService';
 import { haptics } from './services/hapticsService';
+import { bondService } from './services/bondService';
 import { motionService } from './services/motionService';
 import { HEROES } from './data/heroesData';
 import { ITEMS } from './data/itemsData';
@@ -165,9 +166,8 @@ export default function App() {
 
           newSuitcase = newSuitcase.map((b) => {
             if (b.instanceId === prev.buddyInstanceId) {
-              const newXP = (b.bondXP || 0) + 20;
-              const newLevel = Math.min(10, Math.floor(newXP / 100) + 1);
-              return { ...b, bondXP: newXP, bondLevel: newLevel, kmWalked: (b.kmWalked || 0) + 1.0 };
+              const res = bondService.addXP(b.bondLevel, b.bondXP, 25);
+              return { ...b, bondXP: res.newXP, bondLevel: res.newLevel, cp: b.cp + res.cpBonus, kmWalked: (b.kmWalked || 0) + 1.0 };
             }
             return b;
           });
@@ -664,20 +664,41 @@ export default function App() {
 
     setGameState((prev) => {
       let isBuddy = false;
+      let levelUpInfo: { beastName: string; newLevel: number; title: string; cpBonus: number } | null = null;
       const updatedSuitcase = prev.suitcase.map((b) => {
         if (b.instanceId === instanceId) {
           if (prev.buddyInstanceId === instanceId) isBuddy = true;
-          const newXP = (b.bondXP || 0) + xpGain;
-          const newLevel = Math.min(10, Math.floor(newXP / 100) + 1);
+          const res = bondService.addXP(b.bondLevel, b.bondXP, xpGain);
+          if (res.leveledUp) {
+            const beastDef = BEASTS.find((bd) => bd.id === b.beastId);
+            const tierInfo = bondService.getTierInfo(res.newLevel);
+            levelUpInfo = {
+              beastName: b.nickname || beastDef?.name || 'Beast',
+              newLevel: res.newLevel,
+              title: tierInfo.title,
+              cpBonus: res.cpBonus
+            };
+          }
           return {
             ...b,
-            bondXP: newXP,
-            bondLevel: newLevel,
+            bondXP: res.newXP,
+            bondLevel: res.newLevel,
+            cp: b.cp + res.cpBonus,
             timesFed: (b.timesFed || 0) + 1
           };
         }
         return b;
       });
+
+      if (levelUpInfo) {
+        sounds.playMarkReveal();
+        confetti({ particleCount: 50, spread: 75, origin: { y: 0.3 } });
+        showToast(
+          '✨ BOND LEVEL UP!',
+          `${levelUpInfo.beastName} grew to Level ${levelUpInfo.newLevel} (${levelUpInfo.title})! +${levelUpInfo.cpBonus} CP & Stature Growth!`,
+          'success'
+        );
+      }
 
       const updatedQuests = prev.quests.map((q) => {
         if (q.id === 'daily_feed_buddy' && isBuddy) return { ...q, current: q.current + 1 };
@@ -701,12 +722,12 @@ export default function App() {
     setGameState((prev) => {
       const updatedSuitcase = prev.suitcase.map((b) => {
         if (b.instanceId === instanceId) {
-          const newXP = (b.bondXP || 0) + 5;
-          const newLevel = Math.min(10, Math.floor(newXP / 100) + 1);
+          const res = bondService.addXP(b.bondLevel, b.bondXP, 5);
           return {
             ...b,
-            bondXP: newXP,
-            bondLevel: newLevel,
+            bondXP: res.newXP,
+            bondLevel: res.newLevel,
+            cp: b.cp + res.cpBonus,
             timesPetted: (b.timesPetted || 0) + 1
           };
         }
@@ -761,18 +782,16 @@ export default function App() {
     }
 
     const cpGain = Math.floor(Math.random() * 21) + 18; // +18 to +38 CP
-    const newCp = beastInstance.cp + cpGain;
 
     setGameState((prev) => {
       const updatedSuitcase = prev.suitcase.map((b) => {
         if (b.instanceId === instanceId) {
-          const newXP = (b.bondXP || 0) + 15;
-          const newLevel = Math.min(10, Math.floor(newXP / 100) + 1);
+          const res = bondService.addXP(b.bondLevel, b.bondXP, 15);
           return {
             ...b,
-            cp: newCp,
-            bondXP: newXP,
-            bondLevel: newLevel
+            cp: b.cp + cpGain + res.cpBonus,
+            bondXP: res.newXP,
+            bondLevel: res.newLevel
           };
         }
         return b;
@@ -796,7 +815,7 @@ export default function App() {
       colors: ['#38bdf8', '#fbbf24', '#a855f7', '#ffffff']
     });
 
-    showToast('Power Up Successful!', `${beastName}'s CP increased by +${cpGain} to ${newCp}! ⚡`, 'success');
+    showToast('Magical Growth Infused!', `${beastName}'s CP grew by +${cpGain}! Stature & Power expanded! ⚡`, 'success');
   };
 
   // Relocate Beast to MACUSA Ministry
@@ -1002,7 +1021,7 @@ export default function App() {
 
       {/* 2. Top-Level Tab Views */}
       {currentTab === 'suitcase' && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 500 }}>
+        <div className="suitcase-desktop-wrapper" style={{ position: 'fixed', inset: 0, zIndex: 500 }}>
           <SuitcaseSanctuary
             suitcase={gameState.suitcase}
             inventory={gameState.inventory}

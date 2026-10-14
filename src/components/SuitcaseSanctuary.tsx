@@ -23,6 +23,7 @@ import { ITEMS } from '../data/itemsData';
 import { getMoMClassification } from '../data/ministryClassification';
 import { sounds } from '../services/soundService';
 import { haptics } from '../services/hapticsService';
+import { bondService } from '../services/bondService';
 import { CapturedBeast, Hero, Beast } from '../types';
 
 interface FloatingHeart {
@@ -116,7 +117,11 @@ export default function SuitcaseSanctuary({
       if (!a.isFavorite && b.isFavorite) return 1;
 
       if (sortBy === 'cp') return b.cp - a.cp;
-      if (sortBy === 'bond') return (b.bondLevel * 100 + b.bondXP) - (a.bondLevel * 100 + a.bondXP);
+      if (sortBy === 'bond') {
+        const bondWeightA = (a.bondLevel || 1) * 1000 + (a.bondXP || 0);
+        const bondWeightB = (b.bondLevel || 1) * 1000 + (b.bondXP || 0);
+        return bondWeightB - bondWeightA;
+      }
       if (sortBy === 'recent') return b.capturedAt - a.capturedAt;
       if (sortBy === 'marks') {
         if (a.mark && !b.mark) return -1;
@@ -246,8 +251,8 @@ export default function SuitcaseSanctuary({
     const multiplier = (isFavorite ? 1.8 : 1.0) * (hero.bonusTreatEffect || 1.0);
     const xpGain = Math.round((treat.bondXP || 30) * multiplier);
 
-    setAnimationClass('interactive-beast-bounce');
-    setTimeout(() => setAnimationClass(''), 550);
+    setAnimationClass('interactive-beast-bounce creature-growth-pop');
+    setTimeout(() => setAnimationClass(''), 750);
     spawnFloatingHeart(130, 90);
 
     setEmoteBubble(
@@ -282,141 +287,105 @@ export default function SuitcaseSanctuary({
 
   const isCurrentBuddy = activeBeast && buddyInstanceId === activeBeast.beastObj.instanceId;
 
+  // Current Beast Bond and Growth metrics
+  const bondLvl = currentBeastObj?.bondLevel || 1;
+  const tierInfo = bondService.getTierInfo(bondLvl);
+  const targetXP = bondService.getTargetXP(bondLvl);
+  const currentXP = currentBeastObj?.bondXP || 0;
+  const isMaxLevel = bondLvl >= 10;
+  const progressPercent = isMaxLevel ? 100 : Math.min(100, Math.round((currentXP / targetXP) * 100));
+  const creatureScale = bondService.getCreatureScale(bondLvl, currentBeastObj?.cp);
+
   return (
-    <div
-      style={{
-        position: 'relative',
-        width: '100%',
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        background: 'radial-gradient(circle at 50% 20%, #172554 0%, #090d16 100%)',
-        overflow: 'hidden'
-      }}
-    >
+    <div className="suitcase-view-frame">
       {/* Top Header */}
       <div
         style={{
-          padding: 'calc(var(--safe-top) + 12px) 16px 12px',
+          padding: 'calc(var(--safe-top) + 8px) 14px 10px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           borderBottom: '1px solid var(--border-gold)',
-          background: 'rgba(11, 15, 25, 0.85)',
-          backdropFilter: 'blur(12px)',
+          background: 'rgba(11, 15, 25, 0.92)',
+          backdropFilter: 'blur(14px)',
           zIndex: 20
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           {activeBeast ? (
-            <button className="btn-icon" style={{ width: '36px', height: '36px' }} onClick={() => setActiveBeast(null)}>
-              <ArrowLeft size={18} />
+            <button className="btn-icon" style={{ width: '34px', height: '34px' }} onClick={() => setActiveBeast(null)}>
+              <ArrowLeft size={17} />
             </button>
           ) : (
-            <img src="/items/briefcase_closed.png" alt="Suitcase" style={{ width: '36px', height: '36px', objectFit: 'contain' }} />
+            <img src="/items/briefcase_closed.png" alt="Suitcase" style={{ width: '32px', height: '32px', objectFit: 'contain' }} />
           )}
           <div>
-            <h1 className="font-cinzel title-glow" style={{ fontSize: '1.2rem', color: '#fef08a', fontWeight: 800 }}>
-              {activeBeast ? 'Beast Care Sanctuary' : "Newt's Suitcase Sanctuary"}
+            <h1 className="font-cinzel title-glow" style={{ fontSize: '1.05rem', color: '#fef08a', fontWeight: 800, lineHeight: 1.2 }}>
+              {activeBeast ? 'Beast Sanctuary' : "Newt's Sanctuary"}
             </h1>
-            <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
-              {activeBeast ? activeBeast.beast.species : `${totalBeasts} Fantastic Beasts Protected`}
+            <div style={{ fontSize: '0.68rem', color: '#94a3b8' }}>
+              {activeBeast ? activeBeast.beast.species : `${totalBeasts} Protected Creatures`}
             </div>
           </div>
         </div>
 
-        <button className="btn-secondary" style={{ padding: '6px 14px', fontSize: '0.8rem' }} onClick={onClose}>
+        <button
+          className="btn-secondary"
+          style={{ padding: '5px 12px', fontSize: '0.74rem', borderRadius: 'var(--radius-full)' }}
+          onClick={onClose}
+        >
           Exit
         </button>
       </div>
 
-      {/* Main Body */}
+      {/* Main Sanctuary Body */}
       {!activeBeast ? (
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          {/* Desktop & Mobile Sanctuary Summary Stats Bar */}
+          {/* Quick Stats Ribbon (Compact Single Line) */}
           <div
             style={{
-              width: '100%',
-              maxWidth: '1280px',
-              margin: '0 auto',
-              padding: '8px 16px 4px',
+              padding: '6px 12px 4px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              gap: '12px',
-              flexWrap: 'wrap'
+              gap: '6px',
+              fontSize: '0.68rem',
+              color: '#cbd5e1',
+              borderBottom: '1px solid rgba(255,255,255,0.06)'
             }}
           >
-            {/* Quick Sanctuary Badges */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', fontSize: '0.74rem' }}>
-              <div
-                className="glass-card"
-                style={{
-                  padding: '4px 10px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '5px',
-                  color: '#fef08a',
-                  fontWeight: 700
-                }}
-              >
-                <span>🧳</span>
-                <span>{totalBeasts} Protected</span>
-              </div>
-
-              <div
-                className="glass-card"
-                style={{
-                  padding: '4px 10px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '5px',
-                  color: '#38bdf8',
-                  fontWeight: 700
-                }}
-              >
-                <Award size={13} />
-                <span>{uniqueSpeciesCount} Species</span>
-              </div>
-
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ color: '#fef08a', fontWeight: 700 }}>🧳 {totalBeasts} Beasts</span>
+              <span style={{ color: '#64748b' }}>•</span>
+              <span style={{ color: '#38bdf8', fontWeight: 700 }}>🎖️ {uniqueSpeciesCount} Species</span>
               {highestCP > 0 && (
-                <div
-                  className="glass-card"
-                  style={{
-                    padding: '4px 10px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '5px',
-                    color: '#fbbf24',
-                    fontWeight: 700
-                  }}
-                >
-                  <Crown size={13} />
-                  <span>Top CP {highestCP}</span>
-                </div>
-              )}
-
-              {markedBeastsCount > 0 && (
-                <div
-                  className="glass-card"
-                  style={{
-                    padding: '4px 10px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '5px',
-                    color: '#a855f7',
-                    fontWeight: 700
-                  }}
-                >
-                  <Sparkles size={13} />
-                  <span>{markedBeastsCount} Ancient Marks</span>
-                </div>
+                <>
+                  <span style={{ color: '#64748b' }}>•</span>
+                  <span style={{ color: '#fbbf24', fontWeight: 700 }}>👑 Top CP {highestCP}</span>
+                </>
               )}
             </div>
 
-            {/* Quick Search Input */}
+            {markedBeastsCount > 0 && (
+              <span style={{ color: '#c084fc', fontWeight: 700 }}>
+                ✨ {markedBeastsCount} Marks
+              </span>
+            )}
+          </div>
+
+          {/* Search & Sort Row */}
+          <div
+            style={{
+              padding: '6px 12px 4px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}
+          >
+            {/* Instant Search Bar */}
             <div
               style={{
+                flex: 1,
                 display: 'flex',
                 alignItems: 'center',
                 gap: '6px',
@@ -424,13 +393,13 @@ export default function SuitcaseSanctuary({
                 border: '1px solid rgba(251, 191, 36, 0.25)',
                 borderRadius: 'var(--radius-full)',
                 padding: '4px 10px',
-                minWidth: '200px'
+                height: '32px'
               }}
             >
-              <Search size={14} color="#fbbf24" />
+              <Search size={13} color="#fbbf24" />
               <input
                 type="text"
-                placeholder="Search beasts or marks..."
+                placeholder="Search beasts..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 style={{
@@ -438,67 +407,22 @@ export default function SuitcaseSanctuary({
                   border: 'none',
                   outline: 'none',
                   color: '#f8fafc',
-                  fontSize: '0.74rem',
+                  fontSize: '0.72rem',
                   width: '100%'
                 }}
               />
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery('')}
-                  style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '0.75rem' }}
+                  style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '0.72rem' }}
                 >
                   ✕
                 </button>
               )}
             </div>
-          </div>
 
-          {/* Habitat Filter Pills */}
-          <div
-            style={{
-              width: '100%',
-              maxWidth: '1280px',
-              margin: '0 auto',
-              padding: '6px 16px 4px',
-              display: 'flex',
-              gap: '8px',
-              overflowX: 'auto',
-              whiteSpace: 'nowrap'
-            }}
-          >
-            {habitats.map((hab) => (
-              <button
-                key={hab}
-                onClick={() => {
-                  setSelectedHabitat(hab);
-                  haptics.light();
-                }}
-                className={selectedHabitat === hab ? 'btn-magical' : 'btn-secondary'}
-                style={{ padding: '5px 12px', fontSize: '0.74rem', borderRadius: 'var(--radius-full)' }}
-              >
-                {hab}
-              </button>
-            ))}
-          </div>
-
-          {/* Sort Selector Bar */}
-          <div
-            style={{
-              width: '100%',
-              maxWidth: '1280px',
-              margin: '0 auto',
-              padding: '4px 16px 10px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              fontSize: '0.74rem'
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#94a3b8' }}>
-              <ArrowUpDown size={14} color="#fbbf24" />
-              <span>Sort:</span>
-            </div>
-            <div style={{ display: 'flex', gap: '6px' }}>
+            {/* Compact Sort Buttons */}
+            <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
               {(
                 [
                   { id: 'cp', label: 'CP' },
@@ -514,12 +438,12 @@ export default function SuitcaseSanctuary({
                     haptics.light();
                   }}
                   style={{
-                    background: sortBy === s.id ? 'rgba(251, 191, 36, 0.2)' : 'rgba(255, 255, 255, 0.05)',
-                    border: sortBy === s.id ? '1px solid #fbbf24' : '1px solid rgba(255, 255, 255, 0.1)',
+                    background: sortBy === s.id ? 'rgba(251, 191, 36, 0.25)' : 'rgba(255, 255, 255, 0.05)',
+                    border: sortBy === s.id ? '1px solid #fbbf24' : '1px solid rgba(255, 255, 255, 0.08)',
                     color: sortBy === s.id ? '#fef08a' : '#94a3b8',
-                    padding: '3px 8px',
+                    padding: '3px 7px',
                     borderRadius: '6px',
-                    fontSize: '0.72rem',
+                    fontSize: '0.68rem',
                     fontWeight: sortBy === s.id ? 700 : 500,
                     cursor: 'pointer'
                   }}
@@ -530,37 +454,51 @@ export default function SuitcaseSanctuary({
             </div>
           </div>
 
-          {/* Beasts Collection Grid (Desktop Fixed: alignContent: 'start', gridAutoRows: 'max-content') */}
+          {/* Habitat Filter Pills (Swipeable Row) */}
           <div
             style={{
-              flex: 1,
-              width: '100%',
-              maxWidth: '1280px',
-              margin: '0 auto',
-              padding: '8px 16px 90px',
-              overflowY: 'auto',
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
-              gridAutoRows: 'max-content',
-              alignContent: 'start',
-              alignItems: 'start',
-              gap: '14px'
+              padding: '4px 12px 6px',
+              display: 'flex',
+              gap: '6px',
+              overflowX: 'auto',
+              whiteSpace: 'nowrap',
+              WebkitOverflowScrolling: 'touch'
             }}
+          >
+            {habitats.map((hab) => (
+              <button
+                key={hab}
+                onClick={() => {
+                  setSelectedHabitat(hab);
+                  haptics.light();
+                }}
+                className={selectedHabitat === hab ? 'btn-magical' : 'btn-secondary'}
+                style={{ padding: '4px 10px', fontSize: '0.70rem', borderRadius: 'var(--radius-full)' }}
+              >
+                {hab}
+              </button>
+            ))}
+          </div>
+
+          {/* Mobile-First 3-Column Collection Grid */}
+          <div
+            className="sanctuary-grid-container"
+            style={{ flex: 1, overflowY: 'auto' }}
           >
             {filteredAndSortedBeasts.length === 0 ? (
               <div
                 style={{
                   gridColumn: '1 / -1',
                   textAlign: 'center',
-                  padding: '60px 20px',
+                  padding: '40px 16px',
                   color: '#94a3b8'
                 }}
               >
-                <div style={{ fontSize: '42px', marginBottom: '12px' }}>🧳</div>
-                <div className="font-cinzel" style={{ fontSize: '1.1rem', color: '#fbbf24', fontWeight: 700 }}>
+                <div style={{ fontSize: '36px', marginBottom: '8px' }}>🧳</div>
+                <div className="font-cinzel" style={{ fontSize: '1rem', color: '#fbbf24', fontWeight: 700 }}>
                   {searchQuery ? `No Beasts matching "${searchQuery}"` : 'No Beasts in this Habitat'}
                 </div>
-                <div style={{ fontSize: '0.82rem', marginTop: '6px' }}>
+                <div style={{ fontSize: '0.76rem', marginTop: '4px' }}>
                   {searchQuery
                     ? 'Try clearing the search query or selecting "All" habitats.'
                     : 'Cast charms in the wild map to rescue creatures into your suitcase!'}
@@ -572,91 +510,98 @@ export default function SuitcaseSanctuary({
                 const isBuddy = buddyInstanceId === b.instanceId;
                 const hasMark = !!b.mark;
                 const isFav = !!b.isFavorite;
+                const cardScale = bondService.getCreatureScale(b.bondLevel || 1, b.cp);
 
                 return (
                   <div
                     key={b.instanceId}
                     onClick={() => handleSelectBeast(b)}
-                    className="glass-card sanctuary-beast-card"
+                    className="sanctuary-beast-card"
                     style={{
-                      position: 'relative',
-                      padding: '12px 10px',
-                      cursor: 'pointer',
                       border: isBuddy
-                        ? '2px solid #38bdf8'
+                        ? '1.5px solid #38bdf8'
                         : hasMark
                         ? `1.5px solid ${b.mark?.color}`
                         : isFav
                         ? '1.5px solid #fbbf24'
-                        : '1px solid var(--border-gold)',
+                        : '1px solid rgba(255, 255, 255, 0.1)',
                       boxShadow: isBuddy
-                        ? '0 0 16px rgba(56, 189, 248, 0.5)'
+                        ? '0 0 12px rgba(56, 189, 248, 0.4)'
                         : hasMark
-                        ? `0 0 14px ${b.mark?.glow}`
+                        ? `0 0 10px ${b.mark?.glow}`
                         : isFav
-                        ? '0 0 10px rgba(251, 191, 36, 0.3)'
-                        : 'none',
-                      background: 'rgba(15, 23, 42, 0.78)'
+                        ? '0 0 8px rgba(251, 191, 36, 0.25)'
+                        : 'none'
                     }}
                   >
+                    {/* Top Row: CP & Status Icons */}
                     <div style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      {isBuddy ? (
-                        <span style={{ fontSize: '0.68rem', color: '#38bdf8', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '2px' }}>
-                          <Footprints size={12} /> BUDDY
-                        </span>
-                      ) : <span />}
+                      <span style={{ fontSize: '0.70rem', fontWeight: 800, color: '#38bdf8' }}>
+                        CP {b.cp}
+                      </span>
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        {hasMark && (
-                          <div style={{ fontSize: '0.72rem', color: b.mark?.color, fontWeight: 800 }} title={b.mark?.title}>
-                            <span>{b.mark?.icon}</span>
-                          </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                        {isBuddy && (
+                          <span style={{ fontSize: '0.62rem', color: '#38bdf8', fontWeight: 800 }} title="Active Buddy">
+                            <Footprints size={11} />
+                          </span>
                         )}
-                        {onToggleFavorite && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onToggleFavorite(b.instanceId);
-                              haptics.light();
-                            }}
-                            style={{
-                              background: 'transparent',
-                              border: 'none',
-                              color: isFav ? '#fbbf24' : '#64748b',
-                              cursor: 'pointer',
-                              padding: '1px'
-                            }}
-                            title={isFav ? 'Favorited' : 'Add to Favorites'}
-                          >
-                            <Star size={14} fill={isFav ? '#fbbf24' : 'none'} />
-                          </button>
+                        {hasMark && (
+                          <span style={{ fontSize: '0.68rem', color: b.mark?.color }} title={b.mark?.title}>
+                            {b.mark?.icon}
+                          </span>
+                        )}
+                        {isFav && (
+                          <Star size={11} fill="#fbbf24" color="#fbbf24" />
                         )}
                       </div>
                     </div>
 
-                    <img
-                      src={beastData.sprite}
-                      alt={beastData.name}
+                    {/* Beast Sprite (Scaled to Growth Level) */}
+                    <div
                       style={{
-                        width: '88px',
-                        height: '88px',
-                        objectFit: 'contain',
-                        margin: '4px 0',
-                        filter: hasMark ? `drop-shadow(0 0 10px ${b.mark?.color})` : 'none'
+                        position: 'relative',
+                        width: '56px',
+                        height: '56px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
                       }}
-                    />
+                    >
+                      <img
+                        src={beastData.sprite}
+                        alt={beastData.name}
+                        style={{
+                          width: '52px',
+                          height: '52px',
+                          objectFit: 'contain',
+                          transform: `scale(${cardScale})`,
+                          transition: 'transform 0.2s ease',
+                          filter: hasMark ? `drop-shadow(0 0 6px ${b.mark?.color})` : 'none'
+                        }}
+                      />
+                    </div>
 
-                    <div style={{ width: '100%', textAlign: 'center' }}>
-                      <div className="font-cinzel" style={{ fontSize: '0.86rem', fontWeight: 700, color: '#fef08a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {/* Bottom Row: Name & Bond Level */}
+                    <div style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '2px' }}>
+                      <span
+                        className="font-cinzel"
+                        style={{
+                          fontSize: '0.70rem',
+                          fontWeight: 700,
+                          color: '#fef08a',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                          maxWidth: '75%'
+                        }}
+                      >
                         {b.nickname || beastData.name}
-                      </div>
+                      </span>
 
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginTop: '4px' }}>
-                        <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#38bdf8' }}>CP {b.cp}</span>
-                        <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#ec4899', display: 'flex', alignItems: 'center', gap: '2px' }}>
-                          <Heart size={12} fill="#ec4899" /> {b.bondLevel || 1}
-                        </span>
-                      </div>
+                      <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#ec4899', display: 'flex', alignItems: 'center', gap: '1px' }}>
+                        <Heart size={10} fill="#ec4899" /> {b.bondLevel || 1}
+                      </span>
                     </div>
                   </div>
                 );
@@ -665,404 +610,400 @@ export default function SuitcaseSanctuary({
           </div>
         </div>
       ) : (
-        /* Detailed Interactive Beast Care Room (Desktop 2-Column Responsive Layout) */
+        /* Beast Care & Growth Room (Mobile-First Thumb Friendly Suite) */
         <div
           style={{
             flex: 1,
             width: '100%',
-            maxWidth: '1020px',
+            maxWidth: '860px',
             margin: '0 auto',
-            padding: '16px 20px 90px',
+            padding: '12px 14px 90px',
             overflowY: 'auto',
             display: 'flex',
-            flexWrap: 'wrap',
-            justifyContent: 'center',
-            alignItems: 'flex-start',
-            gap: '24px'
+            flexDirection: 'column',
+            gap: '12px'
           }}
         >
-          {/* Left Column: Interactive Beast Stage & Tactile Actions */}
-          <div
-            style={{
-              flex: '1 1 360px',
-              maxWidth: '460px',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: '14px'
-            }}
-          >
-            {/* Interactive Sprite Stage */}
-            <div
-              onClick={handlePet}
-              className="glass-card"
-              style={{
-                position: 'relative',
-                width: '100%',
-                minHeight: '290px',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-                userSelect: 'none',
-                padding: '16px',
-                border: '1.5px solid var(--border-gold)',
-                background: 'radial-gradient(circle at 50% 50%, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.9) 100%)'
-              }}
-            >
-              {/* Dynamic Emote Speech Bubble */}
-              {emoteBubble && (
-                <div
+          {/* Top Identity & Threat Tier Card */}
+          <div className="glass-card" style={{ padding: '12px', textAlign: 'center', position: 'relative' }}>
+            {isEditingName ? (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                <input
+                  type="text"
+                  value={tempName}
+                  onChange={(e) => setTempName(e.target.value)}
+                  maxLength={18}
                   style={{
-                    position: 'absolute',
-                    top: '12px',
-                    background: 'rgba(15, 23, 42, 0.95)',
-                    border: '1.5px solid #fbbf24',
-                    borderRadius: '12px',
-                    padding: '6px 14px',
-                    fontSize: '0.74rem',
+                    background: 'rgba(15, 23, 42, 0.8)',
+                    border: '1px solid var(--gold-bright)',
                     color: '#fef08a',
-                    fontWeight: 600,
-                    boxShadow: '0 4px 14px rgba(0,0,0,0.6)',
-                    zIndex: 15,
-                    maxWidth: '280px',
-                    textAlign: 'center',
-                    animation: 'slideDown 0.25s ease'
+                    padding: '5px 10px',
+                    borderRadius: '8px',
+                    fontFamily: 'var(--font-serif)',
+                    fontSize: '1rem',
+                    textAlign: 'center'
                   }}
-                >
-                  {emoteBubble}
-                </div>
-              )}
+                />
+                <button className="btn-icon" style={{ width: '32px', height: '32px' }} onClick={handleSaveName}>
+                  <Check size={14} />
+                </button>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                <h2 className="font-cinzel title-glow" style={{ fontSize: '1.25rem', color: '#fef08a', fontWeight: 800 }}>
+                  {currentBeastObj?.nickname || activeBeast.beast.name}
+                </h2>
+                <button onClick={() => setIsEditingName(true)} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '2px' }} title="Rename">
+                  <Edit2 size={14} />
+                </button>
+                {onToggleFavorite && currentBeastObj && (
+                  <button
+                    onClick={() => onToggleFavorite(currentBeastObj.instanceId)}
+                    style={{ background: 'none', border: 'none', color: currentBeastObj.isFavorite ? '#fbbf24' : '#64748b', cursor: 'pointer', padding: '2px' }}
+                    title={currentBeastObj.isFavorite ? 'Favorited' : 'Add to Favorites'}
+                  >
+                    <Star size={16} fill={currentBeastObj.isFavorite ? '#fbbf24' : 'none'} />
+                  </button>
+                )}
+              </div>
+            )}
 
-              {/* Floating Heart / Sparkle Particles */}
-              {floatingHearts.map((fh) => (
+            {/* Badges: Threat Tier & Growth Stage */}
+            <div style={{ marginTop: '6px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+              {(() => {
+                const mom = getMoMClassification(activeBeast.beast.classification);
+                return (
+                  <span
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '2px 8px',
+                      borderRadius: '9999px',
+                      background: mom.bgColor,
+                      border: `1px solid ${mom.borderColor}`,
+                      color: mom.color,
+                      fontSize: '0.68rem',
+                      fontWeight: 800
+                    }}
+                  >
+                    {mom.badgeText}
+                  </span>
+                );
+              })()}
+
+              <span
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  padding: '2px 8px',
+                  borderRadius: '9999px',
+                  background: 'rgba(56, 189, 248, 0.15)',
+                  border: '1px solid #38bdf8',
+                  color: '#38bdf8',
+                  fontSize: '0.68rem',
+                  fontWeight: 700
+                }}
+              >
+                {tierInfo.stage} • Stature {(creatureScale * 100).toFixed(0)}%
+              </span>
+            </div>
+
+            {/* Mark Title if present */}
+            {currentBeastObj?.mark && (
+              <div
+                className="mark-badge"
+                style={{
+                  marginTop: '6px',
+                  borderColor: currentBeastObj.mark.color,
+                  color: currentBeastObj.mark.color,
+                  boxShadow: `0 0 10px ${currentBeastObj.mark.glow}`,
+                  fontSize: '0.70rem'
+                }}
+              >
+                <span>{currentBeastObj.mark.icon}</span>
+                <span>Title: {currentBeastObj.mark.title}</span>
+              </div>
+            )}
+
+            {/* REAL PROGRESSIVE BOND BAR (No more fixed 100 XP!) */}
+            <div style={{ marginTop: '10px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.74rem', marginBottom: '3px' }}>
+                <span style={{ color: '#f43f5e', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <Heart size={13} fill="#f43f5e" /> Bond Level {bondLvl} / 10 • {tierInfo.title}
+                </span>
+                <span style={{ color: '#fde047', fontWeight: 700 }}>
+                  {isMaxLevel ? 'MAX BOND 👑' : `${currentXP} / ${targetXP} XP`}
+                </span>
+              </div>
+              <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', overflow: 'hidden' }}>
                 <div
-                  key={fh.id}
                   style={{
-                    position: 'absolute',
-                    left: `${fh.x}px`,
-                    top: `${fh.y}px`,
-                    fontSize: '24px',
-                    pointerEvents: 'none',
-                    animation: 'beast-heart-float 1s forwards ease-out',
-                    zIndex: 20
-                  }}
-                >
-                  {fh.emoji}
-                </div>
-              ))}
-
-              <div className={`animate-float ${animationClass}`} style={{ margin: '18px 0' }}>
-                <img
-                  src={activeBeast.beast.sprite}
-                  alt={activeBeast.beast.name}
-                  style={{
-                    width: '210px',
-                    height: '210px',
-                    objectFit: 'contain',
-                    filter: activeBeast.beastObj.mark
-                      ? `drop-shadow(0 0 18px ${activeBeast.beastObj.mark.color})`
-                      : 'drop-shadow(0 12px 24px rgba(0,0,0,0.6))'
+                    width: `${progressPercent}%`,
+                    height: '100%',
+                    background: 'linear-gradient(90deg, #ec4899, #f43f5e)',
+                    transition: 'width 0.4s ease'
                   }}
                 />
               </div>
-
-              <div
-                style={{
-                  background: 'rgba(15, 23, 42, 0.85)',
-                  border: '1px solid rgba(245, 158, 11, 0.4)',
-                  borderRadius: 'var(--radius-full)',
-                  padding: '4px 14px',
-                  fontSize: '0.74rem',
-                  color: '#fde047',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px'
-                }}
-              >
-                <Smile size={14} />
-                <span>Tap or Stroke to Bond</span>
+              <div style={{ fontSize: '0.68rem', color: '#94a3b8', marginTop: '4px' }}>
+                ✨ {tierInfo.perk}
               </div>
             </div>
+          </div>
 
-            {/* Tactile Bonding Actions Bar */}
-            <div style={{ display: 'flex', gap: '8px', width: '100%', justifyContent: 'center' }}>
-              <button
-                onClick={(e) => handlePet(e)}
-                className="btn-secondary"
-                style={{ flex: 1, padding: '10px 4px', fontSize: '0.75rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}
-                title="Stroke and cuddle"
+          {/* Interactive Creature Stage with Visual Growth */}
+          <div
+            onClick={handlePet}
+            className="glass-card"
+            style={{
+              position: 'relative',
+              width: '100%',
+              minHeight: '230px',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              userSelect: 'none',
+              padding: '14px',
+              border: '1.5px solid var(--border-gold)',
+              background: 'radial-gradient(circle at 50% 50%, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.9) 100%)',
+              overflow: 'hidden'
+            }}
+          >
+            {/* Dynamic Emote Bubble */}
+            {emoteBubble && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '10px',
+                  background: 'rgba(15, 23, 42, 0.95)',
+                  border: '1.5px solid #fbbf24',
+                  borderRadius: '10px',
+                  padding: '5px 12px',
+                  fontSize: '0.72rem',
+                  color: '#fef08a',
+                  fontWeight: 600,
+                  boxShadow: '0 4px 14px rgba(0,0,0,0.6)',
+                  zIndex: 15,
+                  maxWidth: '260px',
+                  textAlign: 'center',
+                  animation: 'slideDown 0.25s ease'
+                }}
               >
-                <Heart size={16} color="#ec4899" />
-                <span>Pet (+5 XP)</span>
-              </button>
+                {emoteBubble}
+              </div>
+            )}
 
-              <button
-                onClick={handleBrush}
-                className="btn-secondary"
-                style={{ flex: 1, padding: '10px 4px', fontSize: '0.75rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}
-                title="Groom fur and feathers"
+            {/* Floating Heart Particles */}
+            {floatingHearts.map((fh) => (
+              <div
+                key={fh.id}
+                style={{
+                  position: 'absolute',
+                  left: `${fh.x}px`,
+                  top: `${fh.y}px`,
+                  fontSize: '22px',
+                  pointerEvents: 'none',
+                  animation: 'beast-heart-float 1s forwards ease-out',
+                  zIndex: 20
+                }}
               >
-                <Sparkles size={16} color="#fbbf24" />
-                <span>Groom (+5 XP)</span>
-              </button>
+                {fh.emoji}
+              </div>
+            ))}
 
-              <button
-                onClick={handlePlayTrick}
-                className="btn-secondary"
-                style={{ flex: 1, padding: '10px 4px', fontSize: '0.75rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}
-                title="Teach mini-trick"
-              >
-                <Wand2 size={16} color="#38bdf8" />
-                <span>Trick (+5 XP)</span>
-              </button>
+            {/* Creature Sprite (Scales with Growth Level!) */}
+            <div
+              className={`animate-float ${animationClass}`}
+              style={{
+                position: 'relative',
+                margin: '14px 0',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              {bondLvl >= 10 && <div className="apex-aura-ring" />}
+              <img
+                src={activeBeast.beast.sprite}
+                alt={activeBeast.beast.name}
+                style={{
+                  width: '180px',
+                  height: '180px',
+                  objectFit: 'contain',
+                  transform: `scale(${creatureScale})`,
+                  transition: 'transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.3s ease',
+                  filter: activeBeast.beastObj.mark
+                    ? `drop-shadow(0 0 16px ${activeBeast.beastObj.mark.color})`
+                    : tierInfo.auraColor
+                    ? `drop-shadow(0 0 14px ${tierInfo.auraColor})`
+                    : 'drop-shadow(0 10px 20px rgba(0,0,0,0.6))'
+                }}
+              />
             </div>
 
-            {/* Set as Walking Buddy button */}
+            <div
+              style={{
+                background: 'rgba(15, 23, 42, 0.85)',
+                border: '1px solid rgba(245, 158, 11, 0.4)',
+                borderRadius: 'var(--radius-full)',
+                padding: '3px 12px',
+                fontSize: '0.70rem',
+                color: '#fde047',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}
+            >
+              <Smile size={13} />
+              <span>Tap or Stroke to Bond (+5 XP)</span>
+            </div>
+          </div>
+
+          {/* Tactile Bonding Actions Bar */}
+          <div style={{ display: 'flex', gap: '8px', width: '100%', justifyContent: 'center' }}>
+            <button
+              onClick={(e) => handlePet(e)}
+              className="btn-secondary"
+              style={{ flex: 1, padding: '8px 4px', fontSize: '0.74rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}
+              title="Stroke and cuddle"
+            >
+              <Heart size={15} color="#ec4899" />
+              <span>Pet (+5 XP)</span>
+            </button>
+
+            <button
+              onClick={handleBrush}
+              className="btn-secondary"
+              style={{ flex: 1, padding: '8px 4px', fontSize: '0.74rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}
+              title="Groom fur and feathers"
+            >
+              <Sparkles size={15} color="#fbbf24" />
+              <span>Groom (+5 XP)</span>
+            </button>
+
+            <button
+              onClick={handlePlayTrick}
+              className="btn-secondary"
+              style={{ flex: 1, padding: '8px 4px', fontSize: '0.74rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}
+              title="Teach mini-trick"
+            >
+              <Wand2 size={15} color="#38bdf8" />
+              <span>Trick (+5 XP)</span>
+            </button>
+          </div>
+
+          {/* Treat Feeding Station */}
+          <div className="glass-panel" style={{ padding: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+              <span className="font-cinzel" style={{ fontSize: '0.82rem', color: '#fbbf24', fontWeight: 700 }}>
+                Feed Treats (Favorite: {activeBeast.beast.favoriteTreat})
+              </span>
+              <Utensils size={15} color="#fbbf24" />
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '6px' }}>
+              {Object.keys(ITEMS)
+                .filter((k) => ITEMS[k].category === 'treat')
+                .map((key) => {
+                  const it = ITEMS[key];
+                  const count = inventory[key] || 0;
+                  const isFav = activeBeast.beast.favoriteTreat === it.name;
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => handleFeed(key)}
+                      disabled={count <= 0}
+                      className="glass-card"
+                      style={{
+                        padding: '6px 2px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: '2px',
+                        cursor: count > 0 ? 'pointer' : 'not-allowed',
+                        opacity: count > 0 ? 1 : 0.4,
+                        border: isFav ? '1.5px solid #fbbf24' : '1px solid rgba(255,255,255,0.1)'
+                      }}
+                      title={`${it.name} (x${count})`}
+                    >
+                      <span style={{ fontSize: '18px' }}>{it.icon}</span>
+                      <span style={{ fontSize: '0.65rem', color: '#cbd5e1' }}>x{count}</span>
+                    </button>
+                  );
+                })}
+            </div>
+          </div>
+
+          {/* Power Up CP & Walking Buddy Buttons */}
+          <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
+            {onPowerUpBeast && currentBeastObj && (
+              <button
+                className="btn-magical"
+                onClick={() => onPowerUpBeast(currentBeastObj.instanceId)}
+                disabled={(inventory.knuts || 0) < 45}
+                style={{
+                  flex: 1,
+                  padding: '9px 10px',
+                  fontSize: '0.76rem',
+                  opacity: (inventory.knuts || 0) >= 45 ? 1 : 0.5,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px'
+                }}
+              >
+                <Zap size={14} />
+                <span>Power Up (+CP & Stature • 45🪙)</span>
+              </button>
+            )}
+
             <button
               className={isCurrentBuddy ? 'btn-magical' : 'btn-secondary'}
               onClick={() => onSetBuddy(activeBeast.beastObj.instanceId)}
-              style={{ width: '100%', padding: '9px 14px', fontSize: '0.78rem', borderRadius: 'var(--radius-full)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
-            >
-              <Footprints size={15} />
-              <span>{isCurrentBuddy ? 'Active Buddy Companion' : 'Set as Walking Buddy'}</span>
-            </button>
-          </div>
-
-          {/* Right Column: Beast Identity, Bond Status, Treat Feeding & Care Controls */}
-          <div
-            style={{
-              flex: '1 1 380px',
-              maxWidth: '460px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '12px'
-            }}
-          >
-            {/* Identity & Nickname Card */}
-            <div className="glass-card" style={{ padding: '14px', textAlign: 'center' }}>
-              {isEditingName ? (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                  <input
-                    type="text"
-                    value={tempName}
-                    onChange={(e) => setTempName(e.target.value)}
-                    maxLength={18}
-                    style={{
-                      background: 'rgba(15, 23, 42, 0.8)',
-                      border: '1px solid var(--gold-bright)',
-                      color: '#fef08a',
-                      padding: '6px 12px',
-                      borderRadius: '8px',
-                      fontFamily: 'var(--font-serif)',
-                      fontSize: '1.1rem',
-                      textAlign: 'center'
-                    }}
-                  />
-                  <button className="btn-icon" style={{ width: '36px', height: '36px' }} onClick={handleSaveName}>
-                    <Check size={16} />
-                  </button>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                  <h2 className="font-cinzel title-glow" style={{ fontSize: '1.35rem', color: '#fef08a', fontWeight: 800 }}>
-                    {currentBeastObj?.nickname || activeBeast.beast.name}
-                  </h2>
-                  <button onClick={() => setIsEditingName(true)} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer' }} title="Rename">
-                    <Edit2 size={16} />
-                  </button>
-                  {onToggleFavorite && currentBeastObj && (
-                    <button
-                      onClick={() => onToggleFavorite(currentBeastObj.instanceId)}
-                      style={{ background: 'none', border: 'none', color: currentBeastObj.isFavorite ? '#fbbf24' : '#64748b', cursor: 'pointer', padding: '2px' }}
-                      title={currentBeastObj.isFavorite ? 'Favorited' : 'Add to Favorites'}
-                    >
-                      <Star size={18} fill={currentBeastObj.isFavorite ? '#fbbf24' : 'none'} />
-                    </button>
-                  )}
-                </div>
-              )}
-
-              {/* Threat Tier Badge */}
-              <div style={{ marginTop: '8px', display: 'flex', justifyContent: 'center' }}>
-                {(() => {
-                  const mom = getMoMClassification(activeBeast.beast.classification);
-                  return (
-                    <span
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '5px',
-                        padding: '4px 12px',
-                        borderRadius: '9999px',
-                        background: mom.bgColor,
-                        border: `1px solid ${mom.borderColor}`,
-                        color: mom.color,
-                        fontSize: '0.74rem',
-                        fontWeight: 800,
-                        letterSpacing: '0.4px',
-                        boxShadow: `0 0 10px ${mom.bgColor}`
-                      }}
-                    >
-                      <span>{mom.badgeText}</span>
-                    </span>
-                  );
-                })()}
-              </div>
-
-              {/* Mark Title if present */}
-              {currentBeastObj?.mark && (
-                <div
-                  className="mark-badge"
-                  style={{
-                    marginTop: '8px',
-                    borderColor: currentBeastObj.mark.color,
-                    color: currentBeastObj.mark.color,
-                    boxShadow: `0 0 12px ${currentBeastObj.mark.glow}`,
-                    animation: 'golden-shimmer 2s infinite ease-in-out'
-                  }}
-                >
-                  <span>{currentBeastObj.mark.icon}</span>
-                  <span>Title: {currentBeastObj.mark.title}</span>
-                </div>
-              )}
-
-              {/* Bond Progression Bar */}
-              <div style={{ marginTop: '14px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', marginBottom: '4px' }}>
-                  <span style={{ color: '#f43f5e', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <Heart size={14} fill="#f43f5e" /> Bond Level {currentBeastObj?.bondLevel || 1} / 10
-                  </span>
-                  <span style={{ color: '#94a3b8' }}>{currentBeastObj?.bondXP || 0} / 100 XP</span>
-                </div>
-                <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', overflow: 'hidden' }}>
-                  <div
-                    style={{
-                      width: `${Math.min(100, currentBeastObj?.bondXP || 0)}%`,
-                      height: '100%',
-                      background: 'linear-gradient(90deg, #ec4899, #f43f5e)',
-                      transition: 'width 0.4s ease'
-                    }}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Treat Feeding Station */}
-            <div className="glass-panel" style={{ padding: '14px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                <span className="font-cinzel" style={{ fontSize: '0.85rem', color: '#fbbf24', fontWeight: 700 }}>
-                  Feed Treats (Favorite: {activeBeast.beast.favoriteTreat})
-                </span>
-                <Utensils size={16} color="#fbbf24" />
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '6px' }}>
-                {Object.keys(ITEMS)
-                  .filter((k) => ITEMS[k].category === 'treat')
-                  .map((key) => {
-                    const it = ITEMS[key];
-                    const count = inventory[key] || 0;
-                    const isFav = activeBeast.beast.favoriteTreat === it.name;
-                    return (
-                      <button
-                        key={key}
-                        onClick={() => handleFeed(key)}
-                        disabled={count <= 0}
-                        className="glass-card"
-                        style={{
-                          padding: '6px 2px',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          alignItems: 'center',
-                          gap: '2px',
-                          cursor: count > 0 ? 'pointer' : 'not-allowed',
-                          opacity: count > 0 ? 1 : 0.4,
-                          border: isFav ? '1.5px solid #fbbf24' : '1px solid rgba(255,255,255,0.1)'
-                        }}
-                        title={`${it.name} (x${count})`}
-                      >
-                        <span style={{ fontSize: '20px' }}>{it.icon}</span>
-                        <span style={{ fontSize: '0.65rem', color: '#cbd5e1' }}>x{count}</span>
-                      </button>
-                    );
-                  })}
-              </div>
-            </div>
-
-            {/* Power Up CP Card */}
-            <div
-              className="glass-card"
               style={{
-                padding: '12px 14px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                border: '1.5px solid rgba(56, 189, 248, 0.4)',
-                background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.7) 100%)'
-              }}
-            >
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span className="font-cinzel" style={{ fontSize: '0.96rem', color: '#38bdf8', fontWeight: 800 }}>
-                    CP {currentBeastObj?.cp}
-                  </span>
-                  <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
-                    ({inventory.knuts || 0} Knuts)
-                  </span>
-                </div>
-                <div style={{ fontSize: '0.68rem', color: '#94a3b8', marginTop: '2px' }}>
-                  Infuse leylines to raise Creature Power
-                </div>
-              </div>
-
-              {onPowerUpBeast && currentBeastObj && (
-                <button
-                  className="btn-magical"
-                  onClick={() => onPowerUpBeast(currentBeastObj.instanceId)}
-                  disabled={(inventory.knuts || 0) < 45}
-                  style={{
-                    padding: '7px 14px',
-                    fontSize: '0.78rem',
-                    opacity: (inventory.knuts || 0) >= 45 ? 1 : 0.5,
-                    background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
-                    borderColor: '#38bdf8',
-                    boxShadow: (inventory.knuts || 0) >= 45 ? '0 0 14px rgba(56, 189, 248, 0.4)' : 'none'
-                  }}
-                >
-                  <Zap size={14} />
-                  <span>Power Up (45 🪙)</span>
-                </button>
-              )}
-            </div>
-
-            {/* Relocate to Ministry Sanctuary Button */}
-            <button
-              onClick={() => {
-                if (isCurrentBuddy) {
-                  if (onShowToast) onShowToast('Buddy Protected', 'Cannot relocate your active walking companion!', 'warning');
-                  return;
-                }
-                setShowRelocateConfirm(true);
-              }}
-              className="btn-secondary"
-              style={{
-                width: '100%',
-                padding: '9px',
+                flex: 1,
+                padding: '9px 10px',
                 fontSize: '0.76rem',
-                color: isCurrentBuddy ? '#64748b' : '#f87171',
-                borderColor: isCurrentBuddy ? 'rgba(255,255,255,0.08)' : 'rgba(239, 68, 68, 0.35)',
+                borderRadius: 'var(--radius-full)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: '6px'
+                gap: '5px'
               }}
             >
-              <Trash2 size={14} />
-              <span>Relocate to Ministry (+40 Knuts &amp; Treat)</span>
+              <Footprints size={14} />
+              <span>{isCurrentBuddy ? 'Active Buddy' : 'Set as Buddy'}</span>
             </button>
           </div>
+
+          {/* Relocate to Ministry Sanctuary */}
+          <button
+            onClick={() => {
+              if (isCurrentBuddy) {
+                if (onShowToast) onShowToast('Buddy Protected', 'Cannot relocate your active walking companion!', 'warning');
+                return;
+              }
+              setShowRelocateConfirm(true);
+            }}
+            className="btn-secondary"
+            style={{
+              width: '100%',
+              padding: '8px',
+              fontSize: '0.74rem',
+              color: isCurrentBuddy ? '#64748b' : '#f87171',
+              borderColor: isCurrentBuddy ? 'rgba(255,255,255,0.08)' : 'rgba(239, 68, 68, 0.35)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px'
+            }}
+          >
+            <Trash2 size={13} />
+            <span>Relocate to Ministry (+40 Knuts &amp; Treat)</span>
+          </button>
         </div>
       )}
 

@@ -2,7 +2,7 @@ import React from 'react';
 import { Footprints, Heart, Sparkles, Plus } from 'lucide-react';
 import { CapturedBeast, Beast } from '../types';
 import { BEASTS } from '../data/beastsData';
-
+import { bondService } from '../services/bondService';
 import { sounds } from '../services/soundService';
 
 interface BuddyWidgetProps {
@@ -27,6 +27,8 @@ export default function BuddyWidget({
 
   const targetKm = 1.0;
   const progressPercent = Math.min(100, Math.round((buddyProgressKm / targetKm) * 100));
+  const buddyScale = buddyInstance ? bondService.getCreatureScale(buddyInstance.bondLevel, buddyInstance.cp) : 1.0;
+  const tierInfo = buddyInstance ? bondService.getTierInfo(buddyInstance.bondLevel) : null;
 
   const handleClick = () => {
     if (buddyInstance) {
@@ -49,10 +51,10 @@ export default function BuddyWidget({
         borderRadius: 'var(--radius-full)',
         cursor: 'pointer',
         boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
-        border: '1.5px solid var(--border-gold-bright)',
+        border: buddyInstance && buddyInstance.bondLevel >= 10 ? '2px solid #fbbf24' : '1.5px solid var(--border-gold-bright)',
         transition: 'transform 0.15s ease'
       }}
-      title={buddyInstance ? 'Interact with Buddy Companion' : 'Choose a Buddy Companion'}
+      title={buddyInstance ? `${tierInfo?.title || 'Companion'} (${tierInfo?.perk})` : 'Choose a Buddy Companion'}
     >
       {/* Buddy Avatar or Add icon */}
       <div
@@ -62,7 +64,8 @@ export default function BuddyWidget({
           height: '38px',
           borderRadius: '50%',
           background: '#0f172a',
-          border: '2px solid #fbbf24',
+          border: buddyInstance && buddyInstance.bondLevel >= 10 ? '2px solid #fbbf24' : '2px solid #38bdf8',
+          boxShadow: tierInfo?.auraColor ? `0 0 10px ${tierInfo.auraColor}` : undefined,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -73,7 +76,13 @@ export default function BuddyWidget({
           <img
             src={beastData.sprite}
             alt={beastData.name}
-            style={{ width: '32px', height: '32px', objectFit: 'contain' }}
+            style={{
+              width: '32px',
+              height: '32px',
+              objectFit: 'contain',
+              transform: `scale(${Math.min(1.25, buddyScale)})`,
+              transition: 'transform 0.3s ease'
+            }}
           />
         ) : (
           <Plus size={18} color="#fbbf24" />

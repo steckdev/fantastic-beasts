@@ -6,6 +6,7 @@ import { HEROES } from '../data/heroesData';
 import { Disturbance, Waypoint, CapturedBeast, Beast } from '../types';
 import { BEASTS } from '../data/beastsData';
 import { sounds } from '../services/soundService';
+import { bondService } from '../services/bondService';
 import BuddyWidget from './BuddyWidget';
 
 interface MapEngineProps {
@@ -187,16 +188,23 @@ export default function MapEngine({
     // Walking Buddy Companion Marker (positioned slightly to the east of player)
     if (buddyBeast) {
       const buddyLatLng: [number, number] = [playerPos.lat, playerPos.lng + 0.00012];
+      const buddyScale = bondService.getCreatureScale(buddyInstance?.bondLevel || 1, buddyInstance?.cp);
+      const markerSize = Math.round(40 * buddyScale);
+      const spriteSize = Math.round(32 * buddyScale);
+      const halfSize = Math.round(markerSize / 2);
+      const tierInfo = bondService.getTierInfo(buddyInstance?.bondLevel || 1);
+      const auraColor = tierInfo.auraColor || 'rgba(56, 189, 248, 0.7)';
+
       const buddyIcon = L.divIcon({
         className: 'buddy-marker-container',
         html: `
           <div style="
             position: relative;
-            width: 40px;
-            height: 40px;
+            width: ${markerSize}px;
+            height: ${markerSize}px;
             border-radius: 50%;
-            border: 2px solid #38bdf8;
-            box-shadow: 0 0 14px rgba(56, 189, 248, 0.7);
+            border: 2px solid ${buddyInstance && buddyInstance.bondLevel >= 10 ? '#fbbf24' : '#38bdf8'};
+            box-shadow: 0 0 16px ${auraColor};
             background: #0f172a;
             display: flex;
             align-items: center;
@@ -204,7 +212,7 @@ export default function MapEngine({
             cursor: pointer;
             animation: float 2.5s ease-in-out infinite;
           ">
-            <img src="${buddyBeast.sprite}" style="width: 32px; height: 32px; object-fit: contain;" alt="${buddyBeast.name}" />
+            <img src="${buddyBeast.sprite}" style="width: ${spriteSize}px; height: ${spriteSize}px; object-fit: contain;" alt="${buddyBeast.name}" />
             <div style="
               position: absolute;
               bottom: -4px;
@@ -217,11 +225,11 @@ export default function MapEngine({
               display: flex;
               align-items: center;
               justify-content: center;
-            ">💖</div>
+            ">${buddyInstance && buddyInstance.bondLevel >= 10 ? '👑' : '💖'}</div>
           </div>
         `,
-        iconSize: [40, 40],
-        iconAnchor: [20, 20]
+        iconSize: [markerSize, markerSize],
+        iconAnchor: [halfSize, halfSize]
       });
 
       if (!buddyMarkerRef.current) {

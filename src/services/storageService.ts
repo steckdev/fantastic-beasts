@@ -1,4 +1,5 @@
 import { GameState, Quest } from '../types';
+import { bondService } from './bondService';
 
 const STORAGE_KEY = 'fantastic_beasts_save_v2';
 
@@ -158,11 +159,14 @@ export function loadGameState(): GameState {
       }
     }
 
+    const suitcase = (parsed.suitcase || DEFAULT_STATE.suitcase).map((b) => bondService.normalizeBeast(b));
+
     return {
       ...DEFAULT_STATE,
       ...parsed,
       lastDailyReset: today,
       quests,
+      suitcase,
       attemptedDisturbances: parsed.attemptedDisturbances || {},
       inventory: { ...DEFAULT_STATE.inventory, ...(parsed.inventory || {}) },
       stats: { ...DEFAULT_STATE.stats, ...(parsed.stats || {}) },

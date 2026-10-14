@@ -20,16 +20,58 @@ export default function ItemBagModal({
   onClose
 }: ItemBagModalProps) {
   const [activeTab, setActiveTab] = useState<'inventory' | 'shop'>('inventory');
-  const [activeCategory, setActiveCategory] = useState<'all' | 'treat' | 'energy' | 'lure'>('all');
+  const [activeCategory, setActiveCategory] = useState<'all' | 'potion' | 'ingredient' | 'treat' | 'energy' | 'lure'>('all');
 
-  const categories: { id: 'all' | 'treat' | 'energy' | 'lure'; label: string }[] = [
+  const categories: { id: 'all' | 'potion' | 'ingredient' | 'treat' | 'energy' | 'lure'; label: string }[] = [
     { id: 'all', label: 'All Items' },
-    { id: 'treat', label: 'Treats' },
-    { id: 'energy', label: 'Energy' },
-    { id: 'lure', label: 'Lures & Artifacts' }
+    { id: 'potion', label: '🧪 Potions' },
+    { id: 'ingredient', label: '🌿 Reagents' },
+    { id: 'treat', label: '🍬 Treats' },
+    { id: 'energy', label: '⚡ Energy' },
+    { id: 'lure', label: '🧳 Artifacts' }
   ];
 
   const shopItems: { key: string; name: string; price: number; icon: string; desc: string; count: number }[] = [
+    {
+      key: 'potion_wiggenweld',
+      name: 'Wiggenweld Restorative',
+      price: 80,
+      icon: '🧪',
+      desc: 'Canonical restorative elixir. Instantly restores +50 Spell Energy.',
+      count: 1
+    },
+    {
+      key: 'potion_focus',
+      name: 'Focus Mind Draught',
+      price: 100,
+      icon: '🎯',
+      desc: 'Illuminates golden guide runes on canvas for guaranteed Masterful Cast!',
+      count: 1
+    },
+    {
+      key: 'potion_maxima',
+      name: 'Maxima Surging Draught',
+      price: 110,
+      icon: '💥',
+      desc: '+40% Wand Charm Catch Power and +50% Raid Boss Spell Damage.',
+      count: 1
+    },
+    {
+      key: 'ing_dittany',
+      name: 'Fresh Dittany Leaves',
+      price: 35,
+      icon: '🌿',
+      desc: 'Essential restorative botanical harvested for Wiggenweld potion brewing.',
+      count: 2
+    },
+    {
+      key: 'ing_ashwinder_eggs',
+      name: 'Ashwinder Fiery Eggs',
+      price: 45,
+      icon: '🥚',
+      desc: 'Blazing embers required to brew Edurus and Thunderbrew potions.',
+      count: 2
+    },
     {
       key: 'energy_crystal',
       name: 'Leyline Energy Crystal',

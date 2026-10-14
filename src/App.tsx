@@ -9,7 +9,7 @@ import { motionService } from './services/motionService';
 import { HEROES } from './data/heroesData';
 import { ITEMS } from './data/itemsData';
 import { BEASTS } from './data/beastsData';
-import { Disturbance, Waypoint, CapturedBeast, Mark, GameState, Hero, Item, ToastNotification } from './types';
+import { Disturbance, Waypoint, CapturedBeast, Mark, GameState, Hero, Item, ToastNotification, CauldronSlot } from './types';
 
 import MapEngine from './components/MapEngine';
 import EncounterModal from './components/EncounterModal';
@@ -35,6 +35,7 @@ export default function App() {
   const [disturbances, setDisturbances] = useState<Disturbance[]>([]);
   const [waypoints, setWaypoints] = useState<Waypoint[]>([]);
   const [currentTab, setCurrentTab] = useState<string>('map');
+  const [suitcaseInitialTab, setSuitcaseInitialTab] = useState<'menagerie' | 'potions'>('menagerie');
 
   // Modals
   const [activeEncounter, setActiveEncounter] = useState<Disturbance | null>(null);
@@ -162,6 +163,12 @@ export default function App() {
           const treatKeys = ['treat_brioche', 'treat_gilded_knut', 'treat_woodlice', 'treat_moon_pellets'];
           const rewardTreat = treatKeys[Math.floor(Math.random() * treatKeys.length)];
           newInventory[rewardTreat] = (newInventory[rewardTreat] || 0) + 1;
+
+          // Buddy also discovers rare botanical flora!
+          const botanicalKeys = ['ing_dittany', 'ing_fluxweed', 'ing_mooncalf_fur', 'ing_shrivelfig', 'ing_horklump_juice'];
+          const rewardBotanical = botanicalKeys[Math.floor(Math.random() * botanicalKeys.length)];
+          newInventory[rewardBotanical] = (newInventory[rewardBotanical] || 0) + 1;
+
           newInventory.spell_energy = Math.min(100, (newInventory.spell_energy || 0) + 15);
 
           newSuitcase = newSuitcase.map((b) => {
@@ -175,7 +182,7 @@ export default function App() {
           // Celebration
           sounds.playMarkReveal();
           confetti({ particleCount: 30, spread: 50, origin: { y: 0.2 } });
-          showToast('Buddy Milestone Reached!', 'Walked 1.0 km! Buddy brought you a treat & 15 Spell Energy!', 'success');
+          showToast('Buddy Milestone Reached!', 'Walked 1.0 km! Buddy brought you a treat, botanical herb, & 15 Spell Energy!', 'success');
 
           // Update walk quest
           quests = quests.map((q) => {
@@ -185,12 +192,26 @@ export default function App() {
         }
       }
 
+      // Accelerate simmering cauldrons with walking distance (100m = 10s faster)
+      let cauldrons = prev.cauldrons ? [...prev.cauldrons] : [];
+      if (kmDelta > 0 && cauldrons.length > 0) {
+        const bonusMs = Math.round(kmDelta * 100) * 1000;
+        cauldrons = cauldrons.map((c) => {
+          if (c.recipeId && c.finishesAt && !c.isReady) {
+            const newFinish = Math.max(Date.now(), c.finishesAt - bonusMs);
+            return { ...c, finishesAt: newFinish, isReady: Date.now() >= newFinish };
+          }
+          return c;
+        });
+      }
+
       return {
         ...prev,
         totalKmWalked: newTotalKm,
         buddyKmProgress: newBuddyProg >= 1.0 ? +(newBuddyProg - 1.0).toFixed(3) : newBuddyProg,
         inventory: newInventory,
         suitcase: newSuitcase,
+        cauldrons,
         quests,
         stats: {
           ...prev.stats,
@@ -518,6 +539,23 @@ export default function App() {
         ...prev.stats,
         totalSpellsCast: itemKey === 'spell_energy' ? prev.stats.totalSpellsCast + amount : prev.stats.totalSpellsCast
       }
+    }));
+  };
+
+  const handleAddInventoryItem = (itemKey: string, amount: number = 1) => {
+    setGameState((prev) => ({
+      ...prev,
+      inventory: {
+        ...prev.inventory,
+        [itemKey]: (prev.inventory[itemKey] || 0) + amount
+      }
+    }));
+  };
+
+  const handleUpdateCauldrons = (cauldrons: CauldronSlot[]) => {
+    setGameState((prev) => ({
+      ...prev,
+      cauldrons
     }));
   };
 
@@ -1027,6 +1065,8 @@ export default function App() {
             inventory={gameState.inventory}
             hero={hero}
             buddyInstanceId={gameState.buddyInstanceId}
+            cauldrons={gameState.cauldrons || []}
+            initialTab={suitcaseInitialTab}
             onSetBuddy={handleSetBuddy}
             onFeedBeast={handleFeedBeast}
             onPetBeast={handlePetBeast}
@@ -1034,7 +1074,13 @@ export default function App() {
             onPowerUpBeast={handlePowerUpBeast}
             onRelocateBeast={handleRelocateBeast}
             onToggleFavorite={handleToggleFavorite}
-            onClose={() => setCurrentTab('map')}
+            onConsumeItem={handleConsumeItem}
+            onAddInventoryItem={handleAddInventoryItem}
+            onUpdateCauldrons={handleUpdateCauldrons}
+            onClose={() => {
+              setCurrentTab('map');
+              setSuitcaseInitialTab('menagerie');
+            }}
             onShowToast={showToast}
           />
         </div>
@@ -1062,9 +1108,19 @@ export default function App() {
           onClose={handleCloseEncounter}
           onOpenSanctuary={() => {
             setActiveEncounter(null);
+            setSuitcaseInitialTab('menagerie');
             setCurrentTab('suitcase');
           }}
           onShowToast={showToast}
+          onReplenishEnergy={(amt) =>
+            setGameState((p) => ({
+              ...p,
+              inventory: {
+                ...p.inventory,
+                spell_energy: Math.min(100, (p.inventory.spell_energy || 0) + amt)
+              }
+            }))
+          }
         />
       )}
 
@@ -1082,6 +1138,11 @@ export default function App() {
               distMeters: activeWaypoint.distMeters || 0
             })
           }
+          onOpenPotionsLab={() => {
+            setActiveWaypoint(null);
+            setSuitcaseInitialTab('potions');
+            setCurrentTab('suitcase');
+          }}
         />
       )}
 

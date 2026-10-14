@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import confetti from 'canvas-confetti';
-import { Wand2, X, Heart, Sparkles, Wind, Flame, Droplets, Zap, ShieldAlert } from 'lucide-react';
+import { Wand2, X, Heart, Sparkles, Wind, Flame, Droplets, Zap, ShieldAlert, FlaskConical, Shield, Eye, Target } from 'lucide-react';
 import { sounds } from '../services/soundService';
 import { ITEMS } from '../data/itemsData';
 import { SPELLS, getSpellAffinity } from '../data/spellsData';
-import { Disturbance, Hero, Mark, Item, Spell } from '../types';
+import { POTION_RECIPES } from '../data/potionsData';
+import { Disturbance, Hero, Mark, Item, Spell, PotionRecipe, PotionEffectType } from '../types';
 import { getMoMClassification } from '../data/ministryClassification';
 
 interface EncounterModalProps {
@@ -17,6 +18,7 @@ interface EncounterModalProps {
   onClose: () => void;
   onOpenSanctuary?: () => void;
   onShowToast?: (title: string, message: string, type: 'info' | 'success' | 'warning' | 'error' | 'energy' | 'mark') => void;
+  onReplenishEnergy?: (amount: number) => void;
 }
 
 export default function EncounterModal({
@@ -28,7 +30,8 @@ export default function EncounterModal({
   onFlee,
   onClose,
   onOpenSanctuary,
-  onShowToast
+  onShowToast,
+  onReplenishEnergy
 }: EncounterModalProps) {
   const { beast, cp, mark } = disturbance;
   const mom = getMoMClassification(beast.classification);
@@ -38,6 +41,10 @@ export default function EncounterModal({
   const [treatBonus, setTreatBonus] = useState<number>(0);
   const [showTreatDrawer, setShowTreatDrawer] = useState<boolean>(false);
   const [showSpellDrawer, setShowSpellDrawer] = useState<boolean>(false);
+  const [showPotionBelt, setShowPotionBelt] = useState<boolean>(false);
+  const [activePotions, setActivePotions] = useState<Record<string, boolean>>({});
+  const [beastStunnedTurns, setBeastStunnedTurns] = useState<number>(0);
+  const [edurusShieldTurns, setEdurusShieldTurns] = useState<number>(0);
   const [castAccuracy, setCastAccuracy] = useState<'fair' | 'good' | 'great' | 'masterful' | null>(null);
   const [isDrawing, setIsDrawing] = useState<boolean>(false);
 
@@ -54,22 +61,26 @@ export default function EncounterModal({
   const spellAffinity = getSpellAffinity(selectedSpell, beast.type);
   const spellBonusMultiplier = spellAffinity.isSuperEffective ? 1.25 : 1.0;
 
-  // Calculate current catch probability with danger scaling & CP resistance
+  // Tactical potion modifiers
+  const maximaMultiplier = activePotions.maxima ? 1.4 : 1.0;
+  const surpriseBonus = activePotions.invisibility ? 0.25 : 0;
   const baseCatch = beast.baseCatchRate;
   const heroBonus = hero.catchAccuracyBonus || 1.0;
   const accuracyMultiplier =
     castAccuracy === 'masterful' ? 1.6 : castAccuracy === 'great' ? 1.35 : castAccuracy === 'good' ? 1.15 : 1.0;
-  const dangerPenalty = beast.dangerRating >= 4 ? (beast.dangerRating === 5 ? 0.72 : 0.85) : 1.0;
+  const dangerPenalty =
+    beastStunnedTurns > 0 ? 1.0 : beast.dangerRating >= 4 ? (beast.dangerRating === 5 ? 0.72 : 0.85) : 1.0;
   const cpDifficultyFactor = Math.max(0.65, 1 - (cp / (beast.maxCP * 1.6)) * 0.35);
 
   const currentCatchChance = Math.min(
-    0.92,
+    0.98,
     Math.max(
-      0.12,
-      (baseCatch * dangerPenalty * cpDifficultyFactor + treatBonus) *
+      0.15,
+      (baseCatch * dangerPenalty * cpDifficultyFactor + treatBonus + surpriseBonus) *
         heroBonus *
         accuracyMultiplier *
-        spellBonusMultiplier
+        spellBonusMultiplier *
+        maximaMultiplier
     )
   );
 
@@ -152,10 +163,17 @@ export default function EncounterModal({
 
     const length = pts.length;
     let acc: 'fair' | 'good' | 'great' | 'masterful' = 'good';
-    if (length > 35) acc = 'masterful';
-    else if (length > 20) acc = 'great';
-    else if (length > 10) acc = 'good';
-    else acc = 'fair';
+    if (activePotions.focus) {
+      acc = 'masterful';
+    } else if (length > 35) {
+      acc = 'masterful';
+    } else if (length > 20) {
+      acc = 'great';
+    } else if (length > 10) {
+      acc = 'good';
+    } else {
+      acc = 'fair';
+    }
 
     setCastAccuracy(acc);
     sounds.playWandCast(acc);
@@ -171,10 +189,54 @@ export default function EncounterModal({
     }
     onConsumeItem('spell_energy', 1);
     const ratings: ('good' | 'great' | 'masterful')[] = ['good', 'great', 'masterful'];
-    const acc = ratings[Math.floor(Math.random() * ratings.length)];
+    const acc = activePotions.focus ? 'masterful' : ratings[Math.floor(Math.random() * ratings.length)];
     setCastAccuracy(acc);
     sounds.playWandCast(acc);
     executeCaptureAttempt();
+  };
+
+  const handleDrinkPotion = (potion: PotionRecipe) => {
+    if ((inventory[potion.id] || 0) <= 0) return;
+
+    onConsumeItem(potion.id, 1);
+    sounds.playDrinkPotion();
+
+    if (potion.effectType === 'wiggenweld') {
+      if (onReplenishEnergy) {
+        onReplenishEnergy(50);
+      } else {
+        onConsumeItem('spell_energy', -50);
+      }
+      confetti({ particleCount: 30, spread: 50, colors: ['#10b981', '#34d399', '#fde047'] });
+      if (onShowToast) onShowToast('Vitality Restored!', 'Drank Wiggenweld Potion! +50 Spell Energy restored!', 'energy');
+    } else if (potion.effectType === 'thunderbrew') {
+      sounds.playThunderbrew();
+      setBeastStunnedTurns(3);
+      setActivePotions((prev) => ({ ...prev, thunderbrew: true }));
+      confetti({ particleCount: 40, spread: 60, colors: ['#a855f7', '#38bdf8', '#fde047'] });
+      if (onShowToast) onShowToast('Tempest Stun!', 'Thunderbrew struck the beast with lightning! STUNNED for 3 turns!', 'mark');
+    } else if (potion.effectType === 'focus') {
+      sounds.playFocusChime();
+      setActivePotions((prev) => ({ ...prev, focus: true }));
+      confetti({ particleCount: 30, spread: 50, colors: ['#fbbf24', '#fde047', '#38bdf8'] });
+      if (onShowToast) onShowToast('Mind Focused!', 'Golden guide runes projected! Next cast is guaranteed MASTERFUL!', 'success');
+    } else if (potion.effectType === 'maxima') {
+      sounds.playSparkle();
+      setActivePotions((prev) => ({ ...prev, maxima: true }));
+      confetti({ particleCount: 35, spread: 55, colors: ['#ef4444', '#f97316', '#fbbf24'] });
+      if (onShowToast) onShowToast('Spell Power Surged!', 'Maxima Potion consumed! Wand charm catch power surged +40%!', 'success');
+    } else if (potion.effectType === 'invisibility') {
+      setActivePotions((prev) => ({ ...prev, invisibility: true }));
+      confetti({ particleCount: 30, spread: 50, colors: ['#38bdf8', '#cbd5e1', '#ffffff'] });
+      if (onShowToast) onShowToast('Camouflaged!', 'Invisibility Potion active! 0% flee rate & +25% surprise ambush bonus!', 'success');
+    } else if (potion.effectType === 'edurus') {
+      setEdurusShieldTurns(2);
+      setActivePotions((prev) => ({ ...prev, edurus: true }));
+      confetti({ particleCount: 30, spread: 50, colors: ['#d97706', '#b45309', '#fde047'] });
+      if (onShowToast) onShowToast('Barkskin Active!', 'Edurus Potion hardened your defenses! Beast cannot flee for 2 turns!', 'success');
+    }
+
+    setShowPotionBelt(false);
   };
 
   const executeCaptureAttempt = () => {
@@ -222,8 +284,27 @@ export default function EncounterModal({
           mark
         });
       } else {
+        // Tactical Potion Immunity Check against fleeing!
+        if (activePotions.invisibility || (activePotions.edurus && edurusShieldTurns > 0) || (activePotions.thunderbrew && beastStunnedTurns > 0)) {
+          setPhase('encounter');
+          setCastAccuracy(null);
+          sounds.playCreatureCry((beast.cryFreq || 440) * 1.1);
+
+          if (beastStunnedTurns > 0) setBeastStunnedTurns((prev) => prev - 1);
+          if (edurusShieldTurns > 0) setEdurusShieldTurns((prev) => prev - 1);
+
+          if (onShowToast) {
+            const reason = activePotions.invisibility
+              ? 'Invisibility Active: Beast cannot detect you and cannot flee!'
+              : activePotions.edurus
+              ? 'Edurus Barkskin: Shield prevented the beast from escaping!'
+              : 'Thunderbrew Stun: Beast was stunned and unable to flee!';
+            onShowToast('Broke Free but Trapped!', reason, 'info');
+          }
+          return;
+        }
+
         // Genuine Breakout & Flee Check
-        // Threat levels 3-5 have higher risk of fleeing into the night
         const baseFlee = beast.fleeRate || 0.12;
         const threatFactor = (beast.dangerRating - 1) * 0.06;
         const effectiveFleeRate = Math.min(0.65, Math.max(0.06, baseFlee + threatFactor - treatBonus * 0.3));
@@ -411,7 +492,66 @@ export default function EncounterModal({
           )}
 
           {phase !== 'capturing' && phase !== 'caught' && phase !== 'fled' && (
-            <div className="animate-float" style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div
+              className="animate-float"
+              style={{
+                position: 'relative',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                filter: activePotions.invisibility ? 'opacity(0.85)' : 'none'
+              }}
+            >
+              {/* Thunderbrew Stun Aura */}
+              {beastStunnedTurns > 0 && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: '-14px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    background: 'rgba(168, 85, 247, 0.45)',
+                    padding: '3px 10px',
+                    borderRadius: '12px',
+                    border: '1.5px solid #c084fc',
+                    color: '#fef08a',
+                    fontSize: '0.68rem',
+                    fontWeight: 800,
+                    boxShadow: '0 0 14px rgba(168, 85, 247, 0.8)',
+                    zIndex: 15,
+                    animation: 'pulse 1s infinite'
+                  }}
+                >
+                  <span>⚡</span>
+                  <span>STUNNED ({beastStunnedTurns} Turns)</span>
+                </div>
+              )}
+
+              {/* Invisibility Camouflage Status */}
+              {activePotions.invisibility && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    bottom: '-14px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    background: 'rgba(56, 189, 248, 0.35)',
+                    padding: '3px 10px',
+                    borderRadius: '12px',
+                    border: '1.5px solid #38bdf8',
+                    color: '#38bdf8',
+                    fontSize: '0.68rem',
+                    fontWeight: 800,
+                    zIndex: 15
+                  }}
+                >
+                  <span>🌫️</span>
+                  <span>Camouflaged (0% Flee)</span>
+                </div>
+              )}
+
               <img
                 src={beast.sprite}
                 alt={beast.name}
@@ -419,7 +559,14 @@ export default function EncounterModal({
                   width: '200px',
                   height: '200px',
                   objectFit: 'contain',
-                  filter: mark ? `drop-shadow(0 0 16px ${mark.color})` : 'drop-shadow(0 8px 16px rgba(0,0,0,0.6))'
+                  filter: mark
+                    ? `drop-shadow(0 0 16px ${mark.color})`
+                    : activePotions.maxima
+                    ? 'drop-shadow(0 0 20px #ef4444)'
+                    : activePotions.edurus
+                    ? 'drop-shadow(0 0 18px #d97706)'
+                    : 'drop-shadow(0 8px 16px rgba(0,0,0,0.6))',
+                  transition: 'filter 0.3s'
                 }}
               />
             </div>
@@ -603,16 +750,44 @@ export default function EncounterModal({
               position: 'relative',
               width: '100%',
               height: '140px',
-              border: `1.5px dashed ${selectedSpell.color}`,
+              border: activePotions.focus ? '2px solid #fbbf24' : `1.5px dashed ${selectedSpell.color}`,
               borderRadius: 'var(--radius-md)',
-              background: 'rgba(15, 23, 42, 0.75)',
+              background: activePotions.focus ? 'rgba(30, 27, 75, 0.85)' : 'rgba(15, 23, 42, 0.75)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               overflow: 'hidden',
-              boxShadow: `inset 0 0 16px ${selectedSpell.glow}`
+              boxShadow: activePotions.focus ? 'inset 0 0 24px rgba(251, 191, 36, 0.4)' : `inset 0 0 16px ${selectedSpell.glow}`
             }}
           >
+            {/* Luminous Golden Rune Guidelines when Focus Potion is active */}
+            {activePotions.focus && (
+              <svg
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  width: '100%',
+                  height: '100%',
+                  pointerEvents: 'none',
+                  zIndex: 12,
+                  filter: 'drop-shadow(0 0 8px #fbbf24)'
+                }}
+              >
+                <path
+                  d="M 30 70 Q 110 20 190 70 T 350 70"
+                  fill="none"
+                  stroke="#fbbf24"
+                  strokeWidth="3.5"
+                  strokeDasharray="6 6"
+                />
+                <circle cx="30" cy="70" r="5" fill="#fde047" />
+                <circle cx="350" cy="70" r="5" fill="#fde047" />
+                <text x="190" y="52" fill="#fef08a" fontSize="11" fontWeight="800" textAnchor="middle">
+                  ✨ FOCUS RUNE GUIDELINE (GUARANTEED MASTERFUL) ✨
+                </text>
+              </svg>
+            )}
+
             <canvas
               ref={canvasRef}
               width={380}
@@ -626,9 +801,9 @@ export default function EncounterModal({
               style={{ position: 'absolute', inset: 0, touchAction: 'none', cursor: 'crosshair', zIndex: 10 }}
             />
             <div style={{ pointerEvents: 'none', textAlign: 'center', color: '#94a3b8', fontSize: '0.8rem' }}>
-              <Wand2 size={22} style={{ margin: '0 auto 4px', color: selectedSpell.color }} />
-              <div>Trace Wand Spell Across Box</div>
-              <div style={{ fontSize: '0.72rem', color: selectedSpell.color, fontWeight: 700 }}>
+              <Wand2 size={22} style={{ margin: '0 auto 4px', color: activePotions.focus ? '#fbbf24' : selectedSpell.color }} />
+              <div>{activePotions.focus ? 'Trace Along Golden Path' : 'Trace Wand Spell Across Box'}</div>
+              <div style={{ fontSize: '0.72rem', color: activePotions.focus ? '#fef08a' : selectedSpell.color, fontWeight: 700 }}>
                 "{selectedSpell.incantation}"
               </div>
             </div>
@@ -636,9 +811,40 @@ export default function EncounterModal({
         )}
 
         {/* Bottom Action Controls */}
-        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '8px', zIndex: 10 }}>
+        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '6px', zIndex: 10 }}>
           {phase === 'encounter' && (
             <>
+              {/* Active Potion Status Chips Ribbon */}
+              {Object.keys(activePotions).some((k) => activePotions[k]) && (
+                <div style={{ display: 'flex', gap: '4px', overflowX: 'auto', paddingBottom: '2px', whiteSpace: 'nowrap' }}>
+                  {activePotions.focus && (
+                    <span style={{ fontSize: '0.64rem', background: 'rgba(234, 179, 8, 0.25)', border: '1px solid #eab308', color: '#fef08a', padding: '2px 6px', borderRadius: '4px', fontWeight: 700 }}>
+                      🎯 Focus: Masterful Cast
+                    </span>
+                  )}
+                  {activePotions.maxima && (
+                    <span style={{ fontSize: '0.64rem', background: 'rgba(239, 68, 68, 0.25)', border: '1px solid #ef4444', color: '#fca5a5', padding: '2px 6px', borderRadius: '4px', fontWeight: 700 }}>
+                      💥 Maxima: +40% Power
+                    </span>
+                  )}
+                  {activePotions.invisibility && (
+                    <span style={{ fontSize: '0.64rem', background: 'rgba(56, 189, 248, 0.25)', border: '1px solid #38bdf8', color: '#7dd3fc', padding: '2px 6px', borderRadius: '4px', fontWeight: 700 }}>
+                      🌫️ Invisibility: 0% Flee
+                    </span>
+                  )}
+                  {activePotions.thunderbrew && (
+                    <span style={{ fontSize: '0.64rem', background: 'rgba(168, 85, 247, 0.25)', border: '1px solid #a855f7', color: '#d8b4fe', padding: '2px 6px', borderRadius: '4px', fontWeight: 700 }}>
+                      ⚡ Thunderbrew Stun
+                    </span>
+                  )}
+                  {activePotions.edurus && (
+                    <span style={{ fontSize: '0.64rem', background: 'rgba(217, 119, 6, 0.25)', border: '1px solid #d97706', color: '#fde68a', padding: '2px 6px', borderRadius: '4px', fontWeight: 700 }}>
+                      🛡️ Edurus Barkskin
+                    </span>
+                  )}
+                </div>
+              )}
+
               <div style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span style={{ fontSize: '0.75rem', color: '#94a3b8', whiteSpace: 'nowrap' }}>Capture Chance:</span>
                 <div style={{ flex: 1, height: '8px', background: '#334155', borderRadius: '4px', overflow: 'hidden' }}>
@@ -656,22 +862,50 @@ export default function EncounterModal({
                 </span>
               </div>
 
-              <div style={{ display: 'flex', gap: '10px', width: '100%' }}>
+              {/* 3-Button Action Suite */}
+              <div style={{ display: 'flex', gap: '6px', width: '100%' }}>
                 <button
                   className="btn-secondary"
-                  onClick={() => setShowTreatDrawer(!showTreatDrawer)}
-                  style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                  onClick={() => {
+                    setShowTreatDrawer(!showTreatDrawer);
+                    setShowPotionBelt(false);
+                    setShowSpellDrawer(false);
+                  }}
+                  style={{ flex: 1, padding: '9px 4px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', fontSize: '0.74rem' }}
                 >
-                  <Heart size={16} color="#ec4899" />
-                  <span>Feed Treat</span>
+                  <Heart size={14} color="#ec4899" />
+                  <span>Treat</span>
+                </button>
+
+                <button
+                  className={showPotionBelt ? 'btn-magical' : 'btn-secondary'}
+                  onClick={() => {
+                    setShowPotionBelt(!showPotionBelt);
+                    setShowTreatDrawer(false);
+                    setShowSpellDrawer(false);
+                    sounds.playCauldronBubble();
+                  }}
+                  style={{
+                    flex: 1.1,
+                    padding: '9px 4px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '4px',
+                    fontSize: '0.74rem',
+                    borderColor: '#a855f7'
+                  }}
+                >
+                  <FlaskConical size={14} color="#c084fc" />
+                  <span>Potions</span>
                 </button>
 
                 <button
                   className="btn-magical"
                   onClick={handleQuickCast}
-                  style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                  style={{ flex: 1.2, padding: '9px 4px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', fontSize: '0.74rem', fontWeight: 800 }}
                 >
-                  <Wand2 size={16} />
+                  <Wand2 size={14} />
                   <span>Cast Charm</span>
                 </button>
               </div>
@@ -858,6 +1092,87 @@ export default function EncounterModal({
                     </button>
                   );
                 })}
+            </div>
+          </div>
+        )}
+
+        {/* Tactical Potion Belt Drawer */}
+        {showPotionBelt && (
+          <div
+            className="glass-panel"
+            style={{
+              position: 'absolute',
+              bottom: '75px',
+              left: '10px',
+              right: '10px',
+              padding: '14px',
+              background: 'rgba(11, 15, 25, 0.98)',
+              border: '2px solid #a855f7',
+              zIndex: 35,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '8px',
+              boxShadow: '0 10px 30px rgba(0,0,0,0.9)'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <FlaskConical size={16} color="#c084fc" />
+                <span className="font-cinzel" style={{ fontSize: '0.88rem', color: '#fef08a', fontWeight: 800 }}>
+                  Tactical Potion Belt
+                </span>
+              </div>
+              <button
+                onClick={() => setShowPotionBelt(false)}
+                style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '18px' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px', maxHeight: '230px', overflowY: 'auto' }}>
+              {POTION_RECIPES.map((potion) => {
+                const count = inventory[potion.id] || 0;
+                const isActive = !!activePotions[potion.effectType];
+                return (
+                  <button
+                    key={potion.id}
+                    onClick={() => handleDrinkPotion(potion)}
+                    disabled={count <= 0 || isActive}
+                    className="glass-card"
+                    style={{
+                      padding: '8px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      cursor: count > 0 && !isActive ? 'pointer' : 'not-allowed',
+                      opacity: count > 0 && !isActive ? 1 : 0.45,
+                      border: isActive ? `1.5px solid #10b981` : `1px solid ${potion.color}50`,
+                      background: isActive ? 'rgba(16, 185, 129, 0.15)' : 'rgba(15, 23, 42, 0.75)',
+                      textAlign: 'left'
+                    }}
+                  >
+                    <span style={{ fontSize: '22px' }}>{potion.icon}</span>
+                    <div style={{ overflow: 'hidden' }}>
+                      <div
+                        style={{
+                          fontSize: '0.74rem',
+                          fontWeight: 700,
+                          color: potion.color,
+                          whiteSpace: 'nowrap',
+                          textOverflow: 'ellipsis',
+                          overflow: 'hidden'
+                        }}
+                      >
+                        {potion.name}
+                      </div>
+                      <div style={{ fontSize: '0.64rem', color: isActive ? '#34d399' : '#94a3b8' }}>
+                        {isActive ? 'ACTIVE' : `Drink (x${count})`}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}

@@ -56,16 +56,64 @@ export interface Mark {
   bonusText: string;
 }
 
+export type PotionEffectType =
+  | 'wiggenweld'
+  | 'edurus'
+  | 'maxima'
+  | 'invisibility'
+  | 'focus'
+  | 'thunderbrew';
+
+export interface PotionRecipe {
+  id: string;
+  name: string;
+  canonicalName: string;
+  icon: string;
+  color: string;
+  glow: string;
+  category: 'restorative' | 'offensive' | 'defensive' | 'stealth';
+  effectType: PotionEffectType;
+  description: string;
+  gameplayBonusText: string;
+  brewTimeSeconds: number;
+  ingredients: {
+    itemId: string;
+    quantity: number;
+  }[];
+}
+
+export interface CauldronSlot {
+  id: string;
+  recipeId: string | null;
+  startedAt: number | null;
+  finishesAt: number | null;
+  isHoppingPot?: boolean;
+  isReady: boolean;
+}
+
+export interface ActivePotionBuff {
+  potionId: string;
+  recipeId: string;
+  effectType: PotionEffectType;
+  name: string;
+  icon: string;
+  color: string;
+  activatedAt: number;
+  expiresAt?: number;
+}
+
 export interface Item {
   id: string;
   name: string;
   icon: string;
   description: string;
-  category: 'energy' | 'currency' | 'treat' | 'lure';
+  category: 'energy' | 'currency' | 'treat' | 'lure' | 'potion' | 'ingredient';
   max?: number;
   bondXP?: number;
   calmPower?: number;
   durationMinutes?: number;
+  potionEffect?: PotionEffectType;
+  potionRecipeId?: string;
 }
 
 export interface CapturedBeast {
@@ -186,6 +234,8 @@ export interface GameState {
   caughtBeasts: Record<string, number>;
   attemptedDisturbances: Record<string, { status: 'captured' | 'fled' | 'escaped'; timestamp: number }>;
   activeLureUntil: number | null;
+  cauldrons?: CauldronSlot[];
+  activeBuffs?: Record<string, ActivePotionBuff>;
   raidsCompletedToday?: number;
   lastRaidDate?: string;
   isLocationPinned?: boolean;

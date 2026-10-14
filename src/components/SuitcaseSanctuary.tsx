@@ -24,7 +24,8 @@ import { getMoMClassification } from '../data/ministryClassification';
 import { sounds } from '../services/soundService';
 import { haptics } from '../services/hapticsService';
 import { bondService } from '../services/bondService';
-import { CapturedBeast, Hero, Beast } from '../types';
+import { CapturedBeast, Hero, Beast, CauldronSlot } from '../types';
+import PotionsLabModal from './PotionsLabModal';
 
 interface FloatingHeart {
   id: number;
@@ -38,6 +39,8 @@ interface SuitcaseSanctuaryProps {
   inventory: Record<string, number>;
   hero: Hero;
   buddyInstanceId: string | null;
+  cauldrons?: CauldronSlot[];
+  initialTab?: 'menagerie' | 'potions';
   onSetBuddy: (instanceId: string) => void;
   onFeedBeast: (instanceId: string, treatKey: string, xpGain: number) => void;
   onPetBeast: (instanceId: string) => void;
@@ -45,6 +48,9 @@ interface SuitcaseSanctuaryProps {
   onPowerUpBeast?: (instanceId: string) => void;
   onRelocateBeast?: (instanceId: string) => void;
   onToggleFavorite?: (instanceId: string) => void;
+  onConsumeItem?: (itemKey: string, amount?: number) => void;
+  onAddInventoryItem?: (itemKey: string, amount: number) => void;
+  onUpdateCauldrons?: (cauldrons: CauldronSlot[]) => void;
   onClose: () => void;
   onShowToast?: (title: string, message: string, type: 'info' | 'success' | 'warning' | 'error' | 'energy' | 'mark') => void;
 }
@@ -54,6 +60,8 @@ export default function SuitcaseSanctuary({
   inventory,
   hero,
   buddyInstanceId,
+  cauldrons,
+  initialTab = 'menagerie',
   onSetBuddy,
   onFeedBeast,
   onPetBeast,
@@ -61,9 +69,13 @@ export default function SuitcaseSanctuary({
   onPowerUpBeast,
   onRelocateBeast,
   onToggleFavorite,
+  onConsumeItem,
+  onAddInventoryItem,
+  onUpdateCauldrons,
   onClose,
   onShowToast
 }: SuitcaseSanctuaryProps) {
+  const [suitcaseTab, setSuitcaseTab] = useState<'menagerie' | 'potions'>(initialTab);
   const [selectedHabitat, setSelectedHabitat] = useState<string>('All');
   const [sortBy, setSortBy] = useState<'cp' | 'bond' | 'recent' | 'marks'>('cp');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -338,16 +350,98 @@ export default function SuitcaseSanctuary({
         </button>
       </div>
 
-      {/* Main Sanctuary Body */}
-      {!activeBeast ? (
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          {/* Quick Stats Ribbon (Compact Single Line) */}
-          <div
+      {/* Sanctuary Section Switcher: Menagerie vs Potions Lab */}
+      {!activeBeast && (
+        <div
+          style={{
+            display: 'flex',
+            padding: '6px 14px',
+            background: 'rgba(15, 23, 42, 0.85)',
+            borderBottom: '1px solid rgba(251, 191, 36, 0.2)',
+            gap: '8px',
+            zIndex: 15
+          }}
+        >
+          <button
+            onClick={() => {
+              setSuitcaseTab('menagerie');
+              haptics.light();
+            }}
             style={{
-              padding: '6px 12px 4px',
+              flex: 1,
+              padding: '6px 10px',
+              borderRadius: 'var(--radius-full)',
+              background:
+                suitcaseTab === 'menagerie'
+                  ? 'linear-gradient(135deg, rgba(251, 191, 36, 0.28), rgba(245, 158, 11, 0.15))'
+                  : 'rgba(255, 255, 255, 0.05)',
+              border: suitcaseTab === 'menagerie' ? '1.5px solid #fbbf24' : '1px solid rgba(255, 255, 255, 0.08)',
+              color: suitcaseTab === 'menagerie' ? '#fef08a' : '#94a3b8',
+              fontSize: '0.76rem',
+              fontWeight: suitcaseTab === 'menagerie' ? 800 : 500,
+              cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'space-between',
+              justifyContent: 'center',
+              gap: '6px'
+            }}
+          >
+            <span>🧳</span>
+            <span>Menagerie ({totalBeasts})</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setSuitcaseTab('potions');
+              haptics.light();
+            }}
+            style={{
+              flex: 1,
+              padding: '6px 10px',
+              borderRadius: 'var(--radius-full)',
+              background:
+                suitcaseTab === 'potions'
+                  ? 'linear-gradient(135deg, rgba(168, 85, 247, 0.3), rgba(56, 189, 248, 0.2))'
+                  : 'rgba(255, 255, 255, 0.05)',
+              border: suitcaseTab === 'potions' ? '1.5px solid #c084fc' : '1px solid rgba(255, 255, 255, 0.08)',
+              color: suitcaseTab === 'potions' ? '#fef08a' : '#94a3b8',
+              fontSize: '0.76rem',
+              fontWeight: suitcaseTab === 'potions' ? 800 : 500,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px'
+            }}
+          >
+            <span>🧪</span>
+            <span>Potions Lab</span>
+          </button>
+        </div>
+      )}
+
+      {/* Main Sanctuary Body */}
+      {!activeBeast ? (
+        suitcaseTab === 'potions' ? (
+          <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <PotionsLabModal
+              inventory={inventory}
+              cauldrons={cauldrons}
+              onConsumeItem={onConsumeItem || (() => {})}
+              onAddInventoryItem={onAddInventoryItem || (() => {})}
+              onUpdateCauldrons={onUpdateCauldrons || (() => {})}
+              onShowToast={onShowToast}
+            />
+          </div>
+        ) : (
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            {/* Quick Stats Ribbon (Compact Single Line) */}
+            <div
+              style={{
+                padding: '6px 12px 4px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
               gap: '6px',
               fontSize: '0.68rem',
               color: '#cbd5e1',
@@ -609,7 +703,8 @@ export default function SuitcaseSanctuary({
             )}
           </div>
         </div>
-      ) : (
+      )
+    ) : (
         /* Beast Care & Growth Room (Mobile-First Thumb Friendly Suite) */
         <div
           style={{

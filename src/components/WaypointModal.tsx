@@ -12,6 +12,7 @@ interface WaypointModalProps {
   onSpinSuccess: (waypointId: string, rewards: Record<string, number>) => void;
   onClose: () => void;
   onApparate?: () => void;
+  onOpenPotionsLab?: () => void;
 }
 
 export default function WaypointModal({
@@ -20,7 +21,8 @@ export default function WaypointModal({
   currentEnergy = 100,
   onSpinSuccess,
   onClose,
-  onApparate
+  onApparate,
+  onOpenPotionsLab
 }: WaypointModalProps) {
   const [isInteracting, setIsInteracting] = useState<boolean>(false);
   const [rewards, setRewards] = useState<Record<string, number> | null>(null);
@@ -48,10 +50,10 @@ export default function WaypointModal({
     if (waypoint.type === 'apothecary') {
       return {
         badge: '🧪 Potion Brewing Station',
-        actionLabel: 'Stir Cauldron & Brew Elixir',
-        pendingLabel: 'Bubbling Restorative Wiggenweld Potion...',
-        successTitle: '✨ Potent Elixir Brewed!',
-        flavorNote: 'Crafted an invigorating restorative potion in the bronze cauldron to infuse your magic.',
+        actionLabel: 'Gather Reagents & Cauldron Stir',
+        pendingLabel: 'Harvesting Ashwinder Eggs & Lacewing Reagents...',
+        successTitle: '✨ Alchemical Reagents Collected!',
+        flavorNote: 'Gathered rare potion bases and stirred the bronze cauldron to infuse your satchel.',
         color: '#a855f7'
       };
     }
@@ -77,14 +79,32 @@ export default function WaypointModal({
 
       const energyGain = Math.floor(14 + Math.random() * 16);
       const knutsGain = Math.floor(25 + Math.random() * 35);
-      const treatsKeys = ['treat_brioche', 'treat_woodlice', 'treat_moon_pellets', 'treat_gilded_knut'];
-      const awardedTreat = treatsKeys[Math.floor(Math.random() * treatsKeys.length)];
 
       const dropped: Record<string, number> = {
         spell_energy: energyGain,
-        knuts: knutsGain,
-        [awardedTreat]: 1
+        knuts: knutsGain
       };
+
+      if (waypoint.type === 'greenhouse') {
+        const flora = ['ing_dittany', 'ing_fluxweed', 'ing_shrivelfig', 'ing_horklump_juice'];
+        const chosen1 = flora[Math.floor(Math.random() * flora.length)];
+        const chosen2 = flora[Math.floor(Math.random() * flora.length)];
+        dropped[chosen1] = (dropped[chosen1] || 0) + 2;
+        dropped[chosen2] = (dropped[chosen2] || 0) + 1;
+      } else if (waypoint.type === 'apothecary') {
+        const reagents = ['ing_ashwinder_eggs', 'ing_leech_juice', 'ing_lacewing_flies', 'ing_spider_fangs', 'ing_mongrel_fur'];
+        const chosen1 = reagents[Math.floor(Math.random() * reagents.length)];
+        const chosen2 = reagents[Math.floor(Math.random() * reagents.length)];
+        dropped[chosen1] = (dropped[chosen1] || 0) + 2;
+        dropped[chosen2] = (dropped[chosen2] || 0) + 1;
+        if (Math.random() < 0.4) {
+          dropped.potion_wiggenweld = 1;
+        }
+      } else {
+        const treatsKeys = ['treat_brioche', 'treat_woodlice', 'treat_moon_pellets', 'treat_gilded_knut'];
+        const awardedTreat = treatsKeys[Math.floor(Math.random() * treatsKeys.length)];
+        dropped[awardedTreat] = 1;
+      }
 
       if (Math.random() < 0.15) {
         dropped.beast_lure = 1;
@@ -242,10 +262,21 @@ export default function WaypointModal({
                 </div>
               )}
               {Object.keys(rewards)
-                .filter((k) => k.startsWith('treat_') || k === 'beast_lure')
+                .filter((k) => k.startsWith('treat_') || k === 'beast_lure' || k.startsWith('ing_') || k.startsWith('potion_'))
                 .map((k) => (
-                  <div key={k} style={{ fontSize: '0.9rem', color: '#f43f5e', fontWeight: 800 }}>
-                    {ITEMS[k]?.icon} +{rewards[k]} {ITEMS[k]?.name}
+                  <div
+                    key={k}
+                    style={{
+                      fontSize: '0.84rem',
+                      color: k.startsWith('ing_') ? '#34d399' : k.startsWith('potion_') ? '#c084fc' : '#f43f5e',
+                      fontWeight: 800,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                  >
+                    <span>{ITEMS[k]?.icon}</span>
+                    <span>+{rewards[k]} {ITEMS[k]?.name}</span>
                   </div>
                 ))}
             </div>
@@ -290,38 +321,89 @@ export default function WaypointModal({
             </div>
           </div>
         ) : (
-          <button
-            className="btn-magical"
-            disabled={isInteracting}
-            onClick={handleInteract}
-            style={{
-              width: '100%',
-              padding: '14px',
-              fontSize: '0.98rem',
-              fontWeight: 800,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px'
-            }}
-          >
-            {isInteracting ? (
-              <Sparkles size={18} className="animate-spin" />
-            ) : waypoint.type === 'greenhouse' ? (
-              <Leaf size={18} />
-            ) : waypoint.type === 'apothecary' ? (
-              <FlaskConical size={18} />
-            ) : (
-              <Beer size={18} />
+          <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <button
+              className="btn-magical"
+              disabled={isInteracting}
+              onClick={handleInteract}
+              style={{
+                width: '100%',
+                padding: '14px',
+                fontSize: '0.98rem',
+                fontWeight: 800,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px'
+              }}
+            >
+              {isInteracting ? (
+                <Sparkles size={18} className="animate-spin" />
+              ) : waypoint.type === 'greenhouse' ? (
+                <Leaf size={18} />
+              ) : waypoint.type === 'apothecary' ? (
+                <FlaskConical size={18} />
+              ) : (
+                <Beer size={18} />
+              )}
+              <span>{isInteracting ? meta.pendingLabel : meta.actionLabel}</span>
+            </button>
+
+            {waypoint.type === 'apothecary' && onOpenPotionsLab && (
+              <button
+                className="btn-secondary"
+                onClick={() => {
+                  onClose();
+                  onOpenPotionsLab();
+                }}
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  fontSize: '0.84rem',
+                  borderColor: '#a855f7',
+                  color: '#fef08a',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px'
+                }}
+              >
+                <FlaskConical size={15} color="#c084fc" />
+                <span>Enter Potions Cauldron Station</span>
+              </button>
             )}
-            <span>{isInteracting ? meta.pendingLabel : meta.actionLabel}</span>
-          </button>
+          </div>
         )}
 
         {rewards && (
-          <button className="btn-magical" style={{ width: '100%', padding: '12px' }} onClick={onClose}>
-            Back to Map
-          </button>
+          <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {waypoint.type === 'apothecary' && onOpenPotionsLab && (
+              <button
+                className="btn-magical"
+                onClick={() => {
+                  onClose();
+                  onOpenPotionsLab();
+                }}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  background: 'linear-gradient(135deg, #7c3aed, #9333ea)',
+                  borderColor: '#c084fc',
+                  fontSize: '0.86rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px'
+                }}
+              >
+                <FlaskConical size={16} />
+                <span>Brew with Harvested Reagents</span>
+              </button>
+            )}
+            <button className="btn-secondary" style={{ width: '100%', padding: '12px' }} onClick={onClose}>
+              Back to Map
+            </button>
+          </div>
         )}
       </div>
     </div>

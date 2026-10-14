@@ -1,4 +1,5 @@
 import { Item } from '../types';
+import { POTION_ITEMS, INGREDIENT_ITEMS } from './potionsData';
 
 export const ITEMS: Record<string, Item> = {
   spell_energy: {
@@ -75,5 +76,8 @@ export const ITEMS: Record<string, Item> = {
     icon: '💎',
     description: 'A crystallized drop of concentrated leyline magic. Instantly restores +40 Spell Energy when shattered.',
     category: 'energy'
-  }
+  },
+  ...POTION_ITEMS,
+  ...INGREDIENT_ITEMS
 };
+

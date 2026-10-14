@@ -89,13 +89,33 @@ const DEFAULT_STATE: GameState = {
     treat_woodlice: 5,
     treat_moon_pellets: 3,
     treat_dragon_fruit: 2,
-    beast_lure: 2
+    beast_lure: 2,
+    potion_wiggenweld: 2,
+    potion_focus: 1,
+    potion_maxima: 1,
+    ing_dittany: 4,
+    ing_horklump_juice: 3,
+    ing_ashwinder_eggs: 2,
+    ing_mongrel_fur: 2,
+    ing_leech_juice: 2,
+    ing_spider_fangs: 2,
+    ing_lacewing_flies: 2,
+    ing_mooncalf_fur: 2,
+    ing_fluxweed: 2,
+    ing_dugbog_tongue: 2,
+    ing_shrivelfig: 2
   },
   suitcase: [],
   seenBeasts: {},
   caughtBeasts: {},
   attemptedDisturbances: {},
   activeLureUntil: null,
+  cauldrons: [
+    { id: 'cauldron_1', recipeId: null, startedAt: null, finishesAt: null, isReady: false },
+    { id: 'cauldron_2', recipeId: null, startedAt: null, finishesAt: null, isReady: false },
+    { id: 'cauldron_hopping', recipeId: 'potion_wiggenweld', startedAt: Date.now() - 35000, finishesAt: Date.now() - 5000, isHoppingPot: true, isReady: true }
+  ],
+  activeBuffs: {},
   stats: {
     totalEncounters: 0,
     totalCaptures: 0,
@@ -169,6 +189,8 @@ export function loadGameState(): GameState {
       suitcase,
       attemptedDisturbances: parsed.attemptedDisturbances || {},
       inventory: { ...DEFAULT_STATE.inventory, ...(parsed.inventory || {}) },
+      cauldrons: parsed.cauldrons && parsed.cauldrons.length > 0 ? parsed.cauldrons : DEFAULT_STATE.cauldrons,
+      activeBuffs: parsed.activeBuffs || {},
       stats: { ...DEFAULT_STATE.stats, ...(parsed.stats || {}) },
       settings: { ...DEFAULT_STATE.settings, ...(parsed.settings || {}) }
     };

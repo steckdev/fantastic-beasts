@@ -17,12 +17,12 @@ export default function FieldGuide({ caughtBeasts, seenBeasts, onClose }: FieldG
   const [inspectBeast, setInspectBeast] = useState<Beast | null>(null);
 
   const classes: { id: 'ALL' | MinistryClassification; label: string }[] = [
-    { id: 'ALL', label: 'All Tiers' },
-    { id: 'XXXXX', label: '👑 Apex (★★★★★)' },
-    { id: 'XXXX', label: '🔮 Mythic (★★★★☆)' },
-    { id: 'XXX', label: '⚡ Formidable (★★★☆☆)' },
-    { id: 'XX', label: '🌿 Curious (★★☆☆☆)' },
-    { id: 'X', label: '🐾 Familiar (★☆☆☆☆)' }
+    { id: 'ALL', label: 'All Levels' },
+    { id: 'XXXXX', label: '👑 5★ Apex' },
+    { id: 'XXXX', label: '🔮 4★ Mythic' },
+    { id: 'XXX', label: '⚡ 3★ Formidable' },
+    { id: 'XX', label: '🌿 2★ Curious' },
+    { id: 'X', label: '🐾 1★ Familiar' }
   ];
 
   const filteredBeasts = BEASTS.filter((b) => {

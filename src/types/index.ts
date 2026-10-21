@@ -227,7 +227,7 @@ export interface CharacterProgression {
   unlockedTalentPerks: string[];
 }
 
-export type MentorId = 'newt' | 'dumbledore' | 'tina';
+export type MentorId = 'dumbledore' | 'grindelwald' | 'lally' | 'theseus' | 'newt' | 'tina';
 
 export interface MentorInfo {
   id: MentorId;

@@ -30,7 +30,7 @@ export default function EncounterModal({
   hero,
   inventory,
   alchemistRank = 1,
-  activeMentorId = 'newt',
+  activeMentorId = 'dumbledore',
   onConsumeItem,
   onCaptureSuccess,
   onFlee,
@@ -42,7 +42,7 @@ export default function EncounterModal({
 }: EncounterModalProps) {
   const { beast, cp, mark } = disturbance;
   const mom = getMoMClassification(beast.classification);
-  const mentor = MENTORS[activeMentorId] || MENTORS.newt;
+  const mentor = MENTORS[activeMentorId] || MENTORS.dumbledore;
   const tacticalAdvice = getMentorTacticalAdvice(activeMentorId, disturbance, inventory);
 
   const [phase, setPhase] = useState<'encounter' | 'casting' | 'capturing' | 'caught' | 'fled'>('encounter');
@@ -76,7 +76,9 @@ export default function EncounterModal({
   const baseCatch = beast.baseCatchRate;
   const heroBonus = hero.catchAccuracyBonus || 1.0;
   const mentorMasterfulBonus = activeMentorId === 'dumbledore' ? 1.4 : 1.0;
-  const tinaThreatBonus = activeMentorId === 'tina' && beast.dangerRating >= 4 ? 1.30 : 1.0;
+  const grindelwaldBonus = activeMentorId === 'grindelwald' ? 1.30 : 1.0;
+  const threatMentorBonus =
+    (activeMentorId === 'theseus' || activeMentorId === 'tina') && beast.dangerRating >= 4 ? 1.45 : 1.0;
   const accuracyMultiplier =
     castAccuracy === 'masterful'
       ? (alchemistRank >= 9 && activePotions.focus ? 1.8 : 1.6) * mentorMasterfulBonus
@@ -98,7 +100,8 @@ export default function EncounterModal({
         accuracyMultiplier *
         spellBonusMultiplier *
         maximaMultiplier *
-        tinaThreatBonus
+        threatMentorBonus *
+        grindelwaldBonus
     )
   );
 
@@ -177,13 +180,21 @@ export default function EncounterModal({
       return;
     }
 
-    onConsumeItem('spell_energy', 1);
+    // Lally's Scholarly Efficiency: 25% chance to preserve spell energy on cast
+    if (activeMentorId === 'lally' && Math.random() < 0.25) {
+      if (onShowToast) {
+        onShowToast('Scholarly Efficiency', 'Professor Lally preserved your spell energy!', 'energy');
+      }
+    } else {
+      onConsumeItem('spell_energy', 1);
+    }
 
     const length = pts.length;
     let acc: 'fair' | 'good' | 'great' | 'masterful' = 'good';
+    const masterfulThreshold = activeMentorId === 'lally' ? 28 : 35;
     if (activePotions.focus) {
       acc = 'masterful';
-    } else if (length > 35) {
+    } else if (length > masterfulThreshold) {
       acc = 'masterful';
     } else if (length > 20) {
       acc = 'great';
@@ -205,7 +216,13 @@ export default function EncounterModal({
       }
       return;
     }
-    onConsumeItem('spell_energy', 1);
+    if (activeMentorId === 'lally' && Math.random() < 0.25) {
+      if (onShowToast) {
+        onShowToast('Scholarly Efficiency', 'Professor Lally preserved your spell energy!', 'energy');
+      }
+    } else {
+      onConsumeItem('spell_energy', 1);
+    }
     const ratings: ('good' | 'great' | 'masterful')[] = ['good', 'great', 'masterful'];
     const acc = activePotions.focus ? 'masterful' : ratings[Math.floor(Math.random() * ratings.length)];
     setCastAccuracy(acc);

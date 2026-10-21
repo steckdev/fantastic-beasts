@@ -5,7 +5,9 @@ export interface MoMClassificationInfo {
   tierNumber: 1 | 2 | 3 | 4 | 5;
   tierName: string;
   badgeText: string;
+  shortLabel: string;
   stars: string;
+  starLevel: string;
   title: string;
   riskLevel: 'Minimal' | 'Low' | 'Moderate' | 'Severe' | 'Lethal';
   color: string;
@@ -20,10 +22,12 @@ export const MOM_CLASSIFICATIONS: Record<MinistryClassification, MoMClassificati
   X: {
     code: 'X',
     tierNumber: 1,
-    tierName: 'Familiar Creature',
-    badgeText: '🐾 FAMILIAR · ★☆☆☆☆',
+    tierName: 'Familiar',
+    badgeText: '🐾 1★ Familiar · ★☆☆☆☆',
+    shortLabel: '1★ Familiar',
     stars: '★☆☆☆☆',
-    title: 'Familiar Creature',
+    starLevel: 'Level 1 (★☆☆☆☆)',
+    title: 'Level 1 · Familiar Creature',
     riskLevel: 'Minimal',
     color: '#94a3b8',
     bgColor: 'rgba(148, 163, 184, 0.15)',
@@ -35,10 +39,12 @@ export const MOM_CLASSIFICATIONS: Record<MinistryClassification, MoMClassificati
   XX: {
     code: 'XX',
     tierNumber: 2,
-    tierName: 'Curious Beast',
-    badgeText: '🌿 CURIOUS · ★★☆☆☆',
+    tierName: 'Curious',
+    badgeText: '🌿 2★ Curious · ★★☆☆☆',
+    shortLabel: '2★ Curious',
     stars: '★★☆☆☆',
-    title: 'Curious Beast',
+    starLevel: 'Level 2 (★★☆☆☆)',
+    title: 'Level 2 · Curious Beast',
     riskLevel: 'Low',
     color: '#34d399',
     bgColor: 'rgba(16, 185, 129, 0.15)',
@@ -50,10 +56,12 @@ export const MOM_CLASSIFICATIONS: Record<MinistryClassification, MoMClassificati
   XXX: {
     code: 'XXX',
     tierNumber: 3,
-    tierName: 'Formidable Beast',
-    badgeText: '⚡ FORMIDABLE · ★★★☆☆',
+    tierName: 'Formidable',
+    badgeText: '⚡ 3★ Formidable · ★★★☆☆',
+    shortLabel: '3★ Formidable',
     stars: '★★★☆☆',
-    title: 'Formidable Beast',
+    starLevel: 'Level 3 (★★★☆☆)',
+    title: 'Level 3 · Formidable Beast',
     riskLevel: 'Moderate',
     color: '#38bdf8',
     bgColor: 'rgba(56, 189, 248, 0.15)',
@@ -65,10 +73,12 @@ export const MOM_CLASSIFICATIONS: Record<MinistryClassification, MoMClassificati
   XXXX: {
     code: 'XXXX',
     tierNumber: 4,
-    tierName: 'Mythical Beast',
-    badgeText: '🔮 MYTHICAL · ★★★★☆',
+    tierName: 'Mythic',
+    badgeText: '🔮 4★ Mythic · ★★★★☆',
+    shortLabel: '4★ Mythic',
     stars: '★★★★☆',
-    title: 'Mythical Beast',
+    starLevel: 'Level 4 (★★★★☆)',
+    title: 'Level 4 · Mythic Beast',
     riskLevel: 'Severe',
     color: '#c084fc',
     bgColor: 'rgba(192, 132, 252, 0.18)',
@@ -80,10 +90,12 @@ export const MOM_CLASSIFICATIONS: Record<MinistryClassification, MoMClassificati
   XXXXX: {
     code: 'XXXXX',
     tierNumber: 5,
-    tierName: 'Legendary Apex',
-    badgeText: '👑 LEGENDARY APEX · ★★★★★',
+    tierName: 'Apex',
+    badgeText: '👑 5★ Apex · ★★★★★',
+    shortLabel: '5★ Apex',
     stars: '★★★★★',
-    title: 'Legendary Apex Beast',
+    starLevel: 'Level 5 (★★★★★)',
+    title: 'Level 5 · Legendary Apex',
     riskLevel: 'Lethal',
     color: '#fbbf24',
     bgColor: 'rgba(251, 191, 36, 0.22)',

@@ -1359,7 +1359,7 @@ export default function App() {
           hero={hero}
           inventory={gameState.inventory}
           alchemistRank={gameState.characterProgression?.alchemistRank || 1}
-          activeMentorId={gameState.activeMentorId || 'newt'}
+          activeMentorId={gameState.activeMentorId || 'dumbledore'}
           onConsumeItem={handleConsumeItem}
           onCaptureSuccess={handleCaptureSuccess}
           onFlee={handleFlee}

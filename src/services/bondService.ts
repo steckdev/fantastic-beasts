@@ -172,6 +172,76 @@ export const bondService = {
     };
   },
 
+  DAILY_AFFECTION_MAX: 25,
+
+  /**
+   * Get today's YYYY-MM-DD date string.
+   */
+  getTodayString(): string {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  },
+
+  /**
+   * Check daily affection progress (petting, grooming, tricks) capped at 25 XP/day.
+   */
+  getDailyAffection(
+    beast: CapturedBeast,
+    todayStr?: string
+  ): {
+    current: number;
+    max: number;
+    remaining: number;
+    isMaxed: boolean;
+  } {
+    const today = todayStr || this.getTodayString();
+    const current = beast.lastAffectionDate === today ? (beast.dailyAffectionXP || 0) : 0;
+    const max = this.DAILY_AFFECTION_MAX;
+    const remaining = Math.max(0, max - current);
+    return {
+      current,
+      max,
+      remaining,
+      isMaxed: remaining <= 0
+    };
+  },
+
+  /**
+   * Calculate creature's current satiety (0% to 100%) taking into account digestion over time.
+   * Fullness decreases by ~20% per hour.
+   */
+  getSatiety(
+    beast: CapturedBeast
+  ): {
+    current: number;
+    max: number;
+    isFull: boolean;
+    percent: number;
+    hoursUntilHungry: number;
+  } {
+    const max = 100;
+    const rawSatiety = beast.satietyLevel ?? 0;
+    const lastFed = beast.lastFedTimestamp || 0;
+
+    let current = rawSatiety;
+    if (lastFed > 0) {
+      const hoursPassed = (Date.now() - lastFed) / (1000 * 60 * 60);
+      const decay = Math.floor(hoursPassed * 20); // 20% digestion per hour
+      current = Math.max(0, Math.min(100, rawSatiety - decay));
+    }
+
+    const isFull = current >= 100;
+    const hoursUntilHungry = isFull ? Math.ceil((current - 70) / 20) : 0;
+
+    return {
+      current,
+      max,
+      isFull,
+      percent: current,
+      hoursUntilHungry
+    };
+  },
+
   /**
    * Normalizes saved beast data from legacy flat /100 XP system
    */
@@ -188,7 +258,11 @@ export const bondService = {
     return {
       ...beast,
       bondLevel: lvl,
-      bondXP: xp
+      bondXP: xp,
+      dailyAffectionXP: beast.dailyAffectionXP || 0,
+      lastAffectionDate: beast.lastAffectionDate || '',
+      satietyLevel: beast.satietyLevel ?? 0,
+      lastFedTimestamp: beast.lastFedTimestamp || 0
     };
   }
 };

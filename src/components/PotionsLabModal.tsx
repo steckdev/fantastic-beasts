@@ -847,14 +847,38 @@ export default function PotionsLabModal({
 
             {/* Simmering Table Cauldrons & Hopping Pot */}
             <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                <span className="font-cinzel" style={{ fontSize: '0.85rem', color: '#fbbf24', fontWeight: 700 }}>
-                  Simmering Table Cauldrons
-                </span>
-                <span style={{ fontSize: '0.68rem', color: '#94a3b8' }}>Brews while walking</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '6px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span className="font-cinzel" style={{ fontSize: '0.85rem', color: '#fbbf24', fontWeight: 700 }}>
+                    Simmering Table Cauldrons
+                  </span>
+                  <span style={{ fontSize: '0.68rem', color: '#94a3b8' }}>({cauldronSlotsCount}/4 Slots)</span>
+                </div>
+                {onOpenShop && cauldronSlotsCount < 4 && (
+                  <button
+                    onClick={onOpenShop}
+                    style={{
+                      padding: '3px 8px',
+                      fontSize: '0.68rem',
+                      fontWeight: 700,
+                      borderRadius: 'var(--radius-full)',
+                      border: '1px solid #fbbf24',
+                      background: 'rgba(251, 191, 36, 0.15)',
+                      color: '#fef08a',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                    title="Unlock extra cauldrons in Diagon Alley shop"
+                  >
+                    <span>⚗️</span>
+                    <span>+ Buy Cauldrons</span>
+                  </button>
+                )}
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '8px' }}>
                 {currentCauldrons.map((slot, idx) => {
                   const recipe = slot.recipeId ? POTION_RECIPES.find((r) => r.id === slot.recipeId) : null;
                   const now = Date.now();
@@ -963,6 +987,72 @@ export default function PotionsLabModal({
                           Simmer
                         </button>
                       )}
+                    </div>
+                  );
+                })}
+
+                {/* Locked Table Cauldron Slots (Discoverability for Cauldron Expansion) */}
+                {Array.from({ length: Math.max(0, 4 - (cauldronSlotsCount || 2)) }).map((_, lockIdx) => {
+                  const slotNumber = (cauldronSlotsCount || 2) + lockIdx + 1;
+                  const upgradeCost = slotNumber === 3 ? 450 : 850;
+                  return (
+                    <div
+                      key={`locked_slot_${slotNumber}`}
+                      onClick={() => {
+                        if (onOpenShop) {
+                          sounds.playUiClick();
+                          onOpenShop();
+                        }
+                      }}
+                      className="glass-card"
+                      style={{
+                        padding: '10px 8px',
+                        textAlign: 'center',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        minHeight: '130px',
+                        border: '1.5px dashed rgba(251, 191, 36, 0.45)',
+                        background: 'rgba(30, 25, 15, 0.55)',
+                        cursor: onOpenShop ? 'pointer' : 'default',
+                        transition: 'all 0.2s'
+                      }}
+                      title="Visit Apothecary to expand cauldron brewing slots"
+                    >
+                      <span style={{ fontSize: '0.62rem', color: '#fbbf24', fontWeight: 800 }}>
+                        Slot #{slotNumber}
+                      </span>
+
+                      <div style={{ margin: '4px 0', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                        <span style={{ fontSize: '24px' }}>🔒</span>
+                        <span style={{ fontSize: '0.66rem', color: '#fef08a', fontWeight: 700, marginTop: '2px' }}>
+                          Locked Slot
+                        </span>
+                        <span style={{ fontSize: '0.60rem', color: '#94a3b8' }}>
+                          🪙 {upgradeCost} Knuts
+                        </span>
+                      </div>
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (onOpenShop) onOpenShop();
+                        }}
+                        style={{
+                          width: '100%',
+                          padding: '4px 2px',
+                          fontSize: '0.64rem',
+                          fontWeight: 700,
+                          borderRadius: '6px',
+                          border: '1px solid #fbbf24',
+                          background: 'rgba(251, 191, 36, 0.2)',
+                          color: '#fef08a',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        + Buy in Shop
+                      </button>
                     </div>
                   );
                 })}

@@ -127,6 +127,10 @@ export interface CapturedBeast {
   capturedAt: number;
   timesFed: number;
   timesPetted: number;
+  dailyAffectionXP?: number;
+  lastAffectionDate?: string;
+  satietyLevel?: number;
+  lastFedTimestamp?: number;
   kmWalked?: number;
   isFavorite?: boolean;
 }

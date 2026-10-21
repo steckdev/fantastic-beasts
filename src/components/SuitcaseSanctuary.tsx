@@ -185,6 +185,7 @@ export default function SuitcaseSanctuary({
 
   const handlePet = (e?: React.MouseEvent) => {
     if (!activeBeast) return;
+    const affection = currentBeastObj ? bondService.getDailyAffection(currentBeastObj) : { current: 0, max: 25, remaining: 25, isMaxed: false };
     sounds.playPurr();
     haptics.medium();
     setAnimationClass('interactive-beast-bounce');
@@ -199,13 +200,17 @@ export default function SuitcaseSanctuary({
     }
     spawnFloatingHeart(clickX, clickY);
 
-    const emotes = [
-      `Purrs contently and nuzzles your fingers!`,
-      `Wiggles with joy! Affection +5`,
-      `Leans into your gentle petting!`,
-      `Beams with magical trust and happiness!`
-    ];
-    setEmoteBubble(emotes[Math.floor(Math.random() * emotes.length)]);
+    if (affection.isMaxed) {
+      setEmoteBubble(`Adored! ❤️ Daily affection is fully satisfied (25/25 XP today).`);
+    } else {
+      const emotes = [
+        `Purrs contently and nuzzles your fingers! (+5 XP)`,
+        `Wiggles with joy! Affection +5 XP`,
+        `Leans into your gentle petting! (+5 XP)`,
+        `Beams with magical trust and happiness! (+5 XP)`
+      ];
+      setEmoteBubble(emotes[Math.floor(Math.random() * emotes.length)]);
+    }
 
     confetti({
       particleCount: 16,
@@ -219,6 +224,7 @@ export default function SuitcaseSanctuary({
 
   const handleBrush = () => {
     if (!activeBeast) return;
+    const affection = currentBeastObj ? bondService.getDailyAffection(currentBeastObj) : { current: 0, max: 25, remaining: 25, isMaxed: false };
     sounds.playPlayfulBounce();
     haptics.light();
     setAnimationClass('interactive-beast-wiggle');
@@ -226,7 +232,11 @@ export default function SuitcaseSanctuary({
 
     spawnFloatingHeart(120, 90);
     spawnFloatingHeart(140, 110);
-    setEmoteBubble(`Groomed! Feathers & fur shine with golden luster!`);
+    if (affection.isMaxed) {
+      setEmoteBubble(`Groomed! Feathers & fur shine with golden luster (25/25 daily XP reached)!`);
+    } else {
+      setEmoteBubble(`Groomed! Feathers & fur shine with golden luster (+5 XP)!`);
+    }
 
     confetti({
       particleCount: 22,
@@ -237,12 +247,19 @@ export default function SuitcaseSanctuary({
 
     onPetBeast(activeBeast.beastObj.instanceId);
     if (onShowToast) {
-      onShowToast('Bond Strengthened!', `Groomed ${activeBeast.beast.name} (+5 Bond XP)`, 'success');
+      onShowToast(
+        affection.isMaxed ? 'Groomed with Love' : 'Bond Strengthened!',
+        affection.isMaxed
+          ? `Groomed ${activeBeast.beast.name} (Daily 25 XP cap reached)`
+          : `Groomed ${activeBeast.beast.name} (+5 Bond XP)`,
+        'success'
+      );
     }
   };
 
   const handlePlayTrick = () => {
     if (!activeBeast) return;
+    const affection = currentBeastObj ? bondService.getDailyAffection(currentBeastObj) : { current: 0, max: 25, remaining: 25, isMaxed: false };
     sounds.playWandCast('masterful');
     sounds.playCreatureCry((activeBeast.beast.cryFreq || 440) * 1.15);
     haptics.medium();
@@ -251,7 +268,11 @@ export default function SuitcaseSanctuary({
 
     spawnFloatingHeart(130, 80);
     spawnFloatingHeart(110, 120);
-    setEmoteBubble(`Magnificent trick! ${activeBeast.beast.name} does a joyful aerial spin!`);
+    if (affection.isMaxed) {
+      setEmoteBubble(`Magnificent trick! ${activeBeast.beast.name} executes a joyful aerial spin! (25/25 daily XP reached)`);
+    } else {
+      setEmoteBubble(`Magnificent trick! ${activeBeast.beast.name} does a joyful aerial spin (+5 XP)!`);
+    }
 
     confetti({
       particleCount: 28,
@@ -267,6 +288,21 @@ export default function SuitcaseSanctuary({
     if (!activeBeast) return;
     const treat = ITEMS[treatKey];
     if (!treat || (inventory[treatKey] || 0) <= 0) return;
+
+    const satiety = currentBeastObj ? bondService.getSatiety(currentBeastObj) : { current: 0, max: 100, isFull: false, percent: 0, hoursUntilHungry: 0 };
+    if (satiety.isFull) {
+      sounds.playSpellFailure();
+      haptics.light();
+      setEmoteBubble(`Stuffed and content! 🥧 Tummy is 100% full right now.`);
+      if (onShowToast) {
+        onShowToast(
+          'Full & Content 🥧',
+          `${activeBeast.beast.name} is completely full (100% Satiety)! Digesting treats...`,
+          'warning'
+        );
+      }
+      return;
+    }
 
     sounds.playPurr();
     sounds.playCreatureCry((activeBeast.beast.cryFreq || 440) * 1.05);
@@ -320,6 +356,14 @@ export default function SuitcaseSanctuary({
   const isMaxLevel = bondLvl >= 10;
   const progressPercent = isMaxLevel ? 100 : Math.min(100, Math.round((currentXP / targetXP) * 100));
   const creatureScale = bondService.getCreatureScale(bondLvl, currentBeastObj?.cp);
+
+  // Daily Affection & Satiety Metrics
+  const affectionInfo = currentBeastObj
+    ? bondService.getDailyAffection(currentBeastObj)
+    : { current: 0, max: 25, remaining: 25, isMaxed: false };
+  const satietyInfo = currentBeastObj
+    ? bondService.getSatiety(currentBeastObj)
+    : { current: 0, max: 100, isFull: false, percent: 0, hoursUntilHungry: 0 };
 
   return (
     <div className="suitcase-view-frame">
@@ -910,6 +954,74 @@ export default function SuitcaseSanctuary({
                 ✨ {tierInfo.perk}
               </div>
             </div>
+
+            {/* Daily Affection & Satiety Metrics Grid */}
+            <div
+              style={{
+                marginTop: '10px',
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: '8px',
+                padding: '8px 10px',
+                background: 'rgba(15, 23, 42, 0.6)',
+                borderRadius: '8px',
+                border: '1px solid rgba(255, 255, 255, 0.08)'
+              }}
+            >
+              {/* Daily Affection Limit */}
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.68rem', marginBottom: '3px' }}>
+                  <span style={{ color: '#fda4af', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '3px' }}>
+                    <Heart size={11} fill={affectionInfo.isMaxed ? '#f43f5e' : 'none'} color="#f43f5e" /> Affection
+                  </span>
+                  <span style={{ color: affectionInfo.isMaxed ? '#34d399' : '#fef08a', fontWeight: 700 }}>
+                    {affectionInfo.current}/{affectionInfo.max} XP
+                  </span>
+                </div>
+                <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
+                  <div
+                    style={{
+                      width: `${Math.min(100, (affectionInfo.current / affectionInfo.max) * 100)}%`,
+                      height: '100%',
+                      background: affectionInfo.isMaxed
+                        ? 'linear-gradient(90deg, #10b981, #34d399)'
+                        : 'linear-gradient(90deg, #f43f5e, #fb7185)',
+                      transition: 'width 0.4s ease'
+                    }}
+                  />
+                </div>
+                <div style={{ fontSize: '0.62rem', color: '#94a3b8', marginTop: '3px' }}>
+                  {affectionInfo.isMaxed ? '✅ Maxed today (purrs only)' : `${affectionInfo.remaining} XP left today`}
+                </div>
+              </div>
+
+              {/* Satiety / Fullness Meter */}
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.68rem', marginBottom: '3px' }}>
+                  <span style={{ color: '#fde047', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '3px' }}>
+                    <Utensils size={11} color="#f59e0b" /> Fullness
+                  </span>
+                  <span style={{ color: satietyInfo.isFull ? '#fb7185' : '#fde047', fontWeight: 700 }}>
+                    {satietyInfo.percent}%
+                  </span>
+                </div>
+                <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
+                  <div
+                    style={{
+                      width: `${satietyInfo.percent}%`,
+                      height: '100%',
+                      background: satietyInfo.isFull
+                        ? 'linear-gradient(90deg, #f59e0b, #ef4444)'
+                        : 'linear-gradient(90deg, #38bdf8, #34d399)',
+                      transition: 'width 0.4s ease'
+                    }}
+                  />
+                </div>
+                <div style={{ fontSize: '0.62rem', color: '#94a3b8', marginTop: '3px' }}>
+                  {satietyInfo.isFull ? '🥧 Full (-20%/hr digestion)' : satietyInfo.percent > 65 ? 'Content' : 'Hungry for treats'}
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Interactive Creature Stage with Visual Growth */}
@@ -1018,7 +1130,11 @@ export default function SuitcaseSanctuary({
               }}
             >
               <Smile size={13} />
-              <span>Tap or Stroke to Bond (+5 XP)</span>
+              <span>
+                {affectionInfo.isMaxed
+                  ? 'Daily Affection Limit Reached (25/25 XP • Purrs Only)'
+                  : `Tap or Stroke to Bond (+5 XP • ${affectionInfo.remaining} left today)`}
+              </span>
             </div>
           </div>
 
@@ -1028,30 +1144,30 @@ export default function SuitcaseSanctuary({
               onClick={(e) => handlePet(e)}
               className="btn-secondary"
               style={{ flex: 1, padding: '8px 4px', fontSize: '0.74rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}
-              title="Stroke and cuddle"
+              title={affectionInfo.isMaxed ? 'Pet for purrs and contentment' : 'Stroke and cuddle (+5 XP)'}
             >
               <Heart size={15} color="#ec4899" />
-              <span>Pet (+5 XP)</span>
+              <span>{affectionInfo.isMaxed ? 'Pet (Purr)' : 'Pet (+5 XP)'}</span>
             </button>
 
             <button
               onClick={handleBrush}
               className="btn-secondary"
               style={{ flex: 1, padding: '8px 4px', fontSize: '0.74rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}
-              title="Groom fur and feathers"
+              title={affectionInfo.isMaxed ? 'Groom fur & feathers' : 'Groom fur and feathers (+5 XP)'}
             >
               <Sparkles size={15} color="#fbbf24" />
-              <span>Groom (+5 XP)</span>
+              <span>{affectionInfo.isMaxed ? 'Groom (Shine)' : 'Groom (+5 XP)'}</span>
             </button>
 
             <button
               onClick={handlePlayTrick}
               className="btn-secondary"
               style={{ flex: 1, padding: '8px 4px', fontSize: '0.74rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}
-              title="Teach mini-trick"
+              title={affectionInfo.isMaxed ? 'Watch playful trick' : 'Teach mini-trick (+5 XP)'}
             >
               <Wand2 size={15} color="#38bdf8" />
-              <span>Trick (+5 XP)</span>
+              <span>{affectionInfo.isMaxed ? 'Trick (Play)' : 'Trick (+5 XP)'}</span>
             </button>
           </div>
 
@@ -1061,8 +1177,33 @@ export default function SuitcaseSanctuary({
               <span className="font-cinzel" style={{ fontSize: '0.82rem', color: '#fbbf24', fontWeight: 700 }}>
                 Feed Treats (Favorite: {activeBeast.beast.favoriteTreat})
               </span>
-              <Utensils size={15} color="#fbbf24" />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '0.70rem', color: satietyInfo.isFull ? '#f43f5e' : '#34d399', fontWeight: 700 }}>
+                  {satietyInfo.isFull ? '🥧 Full (100%)' : `Fullness: ${satietyInfo.percent}%`}
+                </span>
+                <Utensils size={15} color="#fbbf24" />
+              </div>
             </div>
+
+            {satietyInfo.isFull && (
+              <div
+                style={{
+                  background: 'rgba(239, 68, 68, 0.12)',
+                  border: '1px solid rgba(239, 68, 68, 0.35)',
+                  borderRadius: '6px',
+                  padding: '6px 10px',
+                  fontSize: '0.70rem',
+                  color: '#fca5a5',
+                  marginBottom: '8px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+              >
+                <span>🥧</span>
+                <span>{activeBeast.beast.name} is completely full! Tummy digests treats over time (~20%/hr).</span>
+              </div>
+            )}
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '6px' }}>
               {Object.keys(ITEMS)
@@ -1071,11 +1212,12 @@ export default function SuitcaseSanctuary({
                   const it = ITEMS[key];
                   const count = inventory[key] || 0;
                   const isFav = activeBeast.beast.favoriteTreat === it.name;
+                  const canFeed = count > 0 && !satietyInfo.isFull;
                   return (
                     <button
                       key={key}
                       onClick={() => handleFeed(key)}
-                      disabled={count <= 0}
+                      disabled={!canFeed}
                       className="glass-card"
                       style={{
                         padding: '6px 2px',
@@ -1083,11 +1225,15 @@ export default function SuitcaseSanctuary({
                         flexDirection: 'column',
                         alignItems: 'center',
                         gap: '2px',
-                        cursor: count > 0 ? 'pointer' : 'not-allowed',
-                        opacity: count > 0 ? 1 : 0.4,
+                        cursor: canFeed ? 'pointer' : 'not-allowed',
+                        opacity: canFeed ? 1 : 0.35,
                         border: isFav ? '1.5px solid #fbbf24' : '1px solid rgba(255,255,255,0.1)'
                       }}
-                      title={`${it.name} (x${count})`}
+                      title={
+                        satietyInfo.isFull
+                          ? `${it.name} - Creature is completely full!`
+                          : `${it.name} (x${count})`
+                      }
                     >
                       <span style={{ fontSize: '18px' }}>{it.icon}</span>
                       <span style={{ fontSize: '0.65rem', color: '#cbd5e1' }}>x{count}</span>

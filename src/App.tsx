@@ -857,8 +857,22 @@ export default function App() {
     showToast('Waypoint Harvested!', 'Recovered Spell Energy and Wizarding Provisions!', 'success');
   };
 
-  // Beast Feeding in Sanctuary
+  // Beast Feeding in Sanctuary (Satiety & Hunger Meter: max 100%)
   const handleFeedBeast = (instanceId: string, treatKey: string, xpGain: number) => {
+    const targetBeast = gameState.suitcase.find((b) => b.instanceId === instanceId);
+    if (!targetBeast) return;
+
+    const satiety = bondService.getSatiety(targetBeast);
+    if (satiety.isFull) {
+      sounds.playSpellFailure();
+      showToast(
+        'Full & Content! 🥧',
+        `This creature is completely full (100% Satiety). Allow its tummy to digest before offering more treats!`,
+        'warning'
+      );
+      return;
+    }
+
     handleConsumeItem(treatKey, 1);
 
     setGameState((prev) => {
@@ -878,12 +892,15 @@ export default function App() {
               cpBonus: res.cpBonus
             };
           }
+          const currentSatiety = bondService.getSatiety(b).current;
           return {
             ...b,
             bondXP: res.newXP,
             bondLevel: res.newLevel,
             cp: b.cp + res.cpBonus,
-            timesFed: (b.timesFed || 0) + 1
+            timesFed: (b.timesFed || 0) + 1,
+            satietyLevel: Math.min(100, currentSatiety + 34),
+            lastFedTimestamp: Date.now()
           };
         }
         return b;
@@ -916,22 +933,49 @@ export default function App() {
     });
   };
 
-  // Beast Petting in Sanctuary
+  // Beast Petting in Sanctuary (Daily cap: 25 XP/day)
   const handlePetBeast = (instanceId: string) => {
     setGameState((prev) => {
+      const today = bondService.getTodayString();
+      let wasAffectionMaxed = false;
+      let beastName = 'Companion';
+
       const updatedSuitcase = prev.suitcase.map((b) => {
         if (b.instanceId === instanceId) {
-          const res = bondService.addXP(b.bondLevel, b.bondXP, 5);
+          const affection = bondService.getDailyAffection(b, today);
+          const xpToAward = Math.min(5, affection.remaining);
+          beastName = b.nickname || 'Companion';
+
+          if (xpToAward <= 0) {
+            wasAffectionMaxed = true;
+            return {
+              ...b,
+              timesPetted: (b.timesPetted || 0) + 1
+            };
+          }
+
+          const res = bondService.addXP(b.bondLevel, b.bondXP, xpToAward);
           return {
             ...b,
             bondXP: res.newXP,
             bondLevel: res.newLevel,
             cp: b.cp + res.cpBonus,
-            timesPetted: (b.timesPetted || 0) + 1
+            timesPetted: (b.timesPetted || 0) + 1,
+            dailyAffectionXP: (b.lastAffectionDate === today ? (b.dailyAffectionXP || 0) : 0) + xpToAward,
+            lastAffectionDate: today
           };
         }
         return b;
       });
+
+      if (wasAffectionMaxed) {
+        showToast(
+          'Affection Satisfied ❤️',
+          `${beastName} has already received all 25 daily bond affection points today! (Come back tomorrow for more XP)`,
+          'info'
+        );
+      }
+
       return { ...prev, suitcase: updatedSuitcase };
     });
   };
@@ -1482,11 +1526,20 @@ export default function App() {
           currentHeroId={gameState.heroId}
           isFirstTime={!gameState.hasChosenHero}
           onConfirmHero={(chosenId) => {
-            setGameState((prev) => ({
-              ...prev,
-              heroId: chosenId,
-              hasChosenHero: true
-            }));
+            setGameState((prev) => {
+              let updatedMentorId = prev.activeMentorId;
+              if (chosenId === 'newt_scamander' && updatedMentorId === 'newt') {
+                updatedMentorId = 'dumbledore';
+              } else if (chosenId === 'tina_goldstein' && updatedMentorId === 'tina') {
+                updatedMentorId = 'dumbledore';
+              }
+              return {
+                ...prev,
+                heroId: chosenId,
+                hasChosenHero: true,
+                activeMentorId: updatedMentorId
+              };
+            });
             setShowHeroSelect(false);
             showToast('Hero Selected', `You are exploring as ${HEROES.find(h => h.id === chosenId)?.name}!`, 'info');
           }}
@@ -1535,7 +1588,8 @@ export default function App() {
 
       {showMentorModal && (
         <MentorMasterclassModal
-          activeMentorId={gameState.activeMentorId || 'newt'}
+          heroId={gameState.heroId}
+          activeMentorId={gameState.activeMentorId || 'dumbledore'}
           completedMasterclasses={gameState.completedMasterclasses || []}
           alchemistRank={gameState.characterProgression?.alchemistRank || 1}
           onSelectMentor={handleSelectMentor}

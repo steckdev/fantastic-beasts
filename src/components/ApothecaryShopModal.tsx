@@ -8,6 +8,7 @@ interface ApothecaryShopModalProps {
   inventory: Record<string, number>;
   characterRank: number;
   cauldronSlotsCount: number;
+  initialTab?: 'potions' | 'reagents' | 'workshop' | 'daily';
   onBuyItem: (itemKey: string, costKnuts: number, count?: number) => void;
   onSellItem: (itemKey: string, knutsEarned: number, count?: number) => void;
   onUpgradeCauldrons?: (newCount: number, costKnuts: number) => void;
@@ -20,13 +21,14 @@ export default function ApothecaryShopModal({
   inventory,
   characterRank,
   cauldronSlotsCount,
+  initialTab = 'potions',
   onBuyItem,
   onSellItem,
   onUpgradeCauldrons,
   onOpenPotionsLab,
   onClose
 }: ApothecaryShopModalProps) {
-  const [activeTab, setActiveTab] = useState<'potions' | 'reagents' | 'workshop' | 'daily'>('potions');
+  const [activeTab, setActiveTab] = useState<'potions' | 'reagents' | 'workshop' | 'daily'>(initialTab);
   const [reagentSubTab, setReagentSubTab] = useState<'buy' | 'sell'>('buy');
   const [dialogue, setDialogue] = useState<string>(
     '“Welcome to the Apothecary! Fresh herbs and ready draughts straight from our copper cauldrons. What can I brew up for you today?”'
@@ -356,22 +358,20 @@ export default function ApothecaryShopModal({
             gap: '10px'
           }}
         >
-          <div
+          <img
+            src="/sprites/heroes/parry_pippin.png"
+            alt="Shopkeeper Parry Pippin"
             style={{
-              width: '36px',
-              height: '36px',
+              width: '42px',
+              height: '42px',
               borderRadius: '50%',
-              background: 'radial-gradient(circle, #f59e0b 0%, #78350f 100%)',
               border: '2px solid #fbbf24',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '1.1rem',
+              objectFit: 'cover',
+              background: '#1c1917',
+              boxShadow: '0 0 10px rgba(251, 191, 36, 0.4)',
               flexShrink: 0
             }}
-          >
-            🧔‍♂️
-          </div>
+          />
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: '0.68rem', fontWeight: 800, color: '#fbbf24', textTransform: 'uppercase' }}>
               Shopkeeper Parry Pippin
@@ -664,18 +664,22 @@ export default function ApothecaryShopModal({
                             disabled={!canAfford}
                             onClick={() => handleBuyReagent(reag)}
                             style={{
-                              padding: '6px 10px',
-                              background: canAfford ? '#fbbf24' : 'rgba(51, 65, 85, 0.4)',
+                              padding: '6px 12px',
+                              background: canAfford ? 'linear-gradient(135deg, #fbbf24 0%, #d97706 100%)' : 'rgba(51, 65, 85, 0.4)',
                               border: 'none',
                               borderRadius: '10px',
                               color: canAfford ? '#18120e' : '#64748b',
                               fontSize: '0.74rem',
                               fontWeight: 800,
                               cursor: canAfford ? 'pointer' : 'not-allowed',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px',
                               flexShrink: 0
                             }}
                           >
-                            {reag.cost} K
+                            <span>🪙</span>
+                            <span>{reag.cost}</span>
                           </button>
                         </div>
                       );

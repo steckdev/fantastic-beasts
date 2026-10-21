@@ -6,6 +6,7 @@ import { MENTORS, MASTERCLASS_LESSONS } from '../data/mentorData';
 import { sounds } from '../services/soundService';
 
 interface MentorMasterclassModalProps {
+  heroId?: string;
   activeMentorId: MentorId;
   completedMasterclasses: string[];
   alchemistRank: number;
@@ -16,6 +17,7 @@ interface MentorMasterclassModalProps {
 }
 
 export default function MentorMasterclassModal({
+  heroId,
   activeMentorId,
   completedMasterclasses = [],
   alchemistRank = 1,
@@ -455,6 +457,9 @@ export default function MentorMasterclassModal({
                 const m = MENTORS[mId];
                 const isSelected = selectedMentorDetail === mId;
                 const isActive = activeMentorId === mId;
+                const isCurrentHeroPersona =
+                  (heroId === 'newt_scamander' && mId === 'newt') ||
+                  (heroId === 'tina_goldstein' && mId === 'tina');
                 return (
                   <button
                     key={mId}
@@ -475,7 +480,23 @@ export default function MentorMasterclassModal({
                       transition: 'all 0.2s'
                     }}
                   >
-                    {isActive && (
+                    {isCurrentHeroPersona ? (
+                      <span
+                        style={{
+                          position: 'absolute',
+                          top: '4px',
+                          right: '4px',
+                          background: '#f59e0b',
+                          color: '#000',
+                          fontSize: '0.58rem',
+                          fontWeight: 800,
+                          padding: '1px 5px',
+                          borderRadius: '6px'
+                        }}
+                      >
+                        YOU
+                      </span>
+                    ) : isActive ? (
                       <span
                         style={{
                           position: 'absolute',
@@ -491,7 +512,7 @@ export default function MentorMasterclassModal({
                       >
                         ACTIVE
                       </span>
-                    )}
+                    ) : null}
                     <img
                       src={m.sprite}
                       alt={m.name}
@@ -615,7 +636,27 @@ export default function MentorMasterclassModal({
 
               {/* Set Active Button */}
               <div style={{ marginTop: '16px' }}>
-                {activeMentorId === currentMentor.id ? (
+                {((heroId === 'newt_scamander' && currentMentor.id === 'newt') ||
+                  (heroId === 'tina_goldstein' && currentMentor.id === 'tina')) ? (
+                  <div
+                    style={{
+                      width: '100%',
+                      padding: '12px 14px',
+                      borderRadius: '12px',
+                      background: 'rgba(251, 191, 36, 0.12)',
+                      border: '1.5px dashed #fbbf24',
+                      color: '#fef08a',
+                      textAlign: 'center',
+                      fontSize: '0.8rem',
+                      fontWeight: 600,
+                      lineHeight: '1.4'
+                    }}
+                  >
+                    <span>
+                      👤 <strong>Your Active Persona:</strong> You are currently exploring as {currentMentor.name}! A wizard cannot mentor themselves—select Professor Dumbledore or your fellow field partner above for tactical counsel.
+                    </span>
+                  </div>
+                ) : activeMentorId === currentMentor.id ? (
                   <div
                     style={{
                       width: '100%',

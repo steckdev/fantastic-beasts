@@ -483,6 +483,16 @@ body.battery-saver * {
   transform: scale(0.96);
 }
 
+.suitcase-view-frame {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: radial-gradient(circle at 50% 15%, #151d30 0%, #080c16 100%);
+  position: relative;
+  overflow: hidden;
+}
+
 /* Tablet Breakpoint (>= 640px) */
 @media (min-width: 640px) {
   .sanctuary-grid-container {
@@ -504,16 +514,17 @@ body.battery-saver * {
     justify-content: center;
     height: 100%;
     padding: 24px;
-    background: rgba(4, 7, 15, 0.75);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    background: rgba(3, 6, 12, 0.95);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
   }
   .suitcase-view-frame {
     max-width: 1040px;
     max-height: 90vh;
     border-radius: 20px;
+    background: radial-gradient(circle at 50% 15%, #151d30 0%, #080c16 100%) !important;
     border: 2px solid var(--border-gold-bright) !important;
-    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.8), 0 0 40px rgba(251, 191, 36, 0.25) !important;
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.95), 0 0 40px rgba(251, 191, 36, 0.25) !important;
   }
   .sanctuary-grid-container {
     max-width: 960px;

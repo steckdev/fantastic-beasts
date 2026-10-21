@@ -41,7 +41,7 @@ export default function QuestsModal({ quests, onClaimReward, onClose }: QuestsMo
               Daily MACUSA Tasks
             </h2>
           </div>
-          <button className="btn-icon" style={{ width: '34px', height: '34px' }} onClick={onClose}>
+          <button className="btn-modal-close" onClick={onClose} title="Close" aria-label="Close">
             <X size={18} />
           </button>
         </div>

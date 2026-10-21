@@ -98,6 +98,8 @@ const DEFAULT_STATE: GameState = {
   heroId: 'newt_scamander',
   hasChosenHero: false,
   buddyInstanceId: null,
+  activeMentorId: 'newt',
+  completedMasterclasses: [],
   totalKmWalked: 0,
   totalSteps: 0,
   buddyKmProgress: 0,
@@ -245,6 +247,8 @@ export function loadGameState(): GameState {
       cauldrons: parsed.cauldrons && parsed.cauldrons.length > 0 ? parsed.cauldrons : DEFAULT_STATE.cauldrons,
       cauldronSlotsCount: parsed.cauldronSlotsCount || DEFAULT_STATE.cauldronSlotsCount || 2,
       characterProgression: alchemistService.normalizeProgression(parsed.characterProgression),
+      activeMentorId: (parsed.activeMentorId as any) || DEFAULT_STATE.activeMentorId || 'newt',
+      completedMasterclasses: parsed.completedMasterclasses || [],
       activeBuffs: parsed.activeBuffs || {},
       stats: { ...DEFAULT_STATE.stats, ...(parsed.stats || {}) },
       settings: { ...DEFAULT_STATE.settings, ...(parsed.settings || {}) }

@@ -67,7 +67,7 @@ export default function SettingsModal({
               Settings & Cartography
             </h2>
           </div>
-          <button className="btn-icon" style={{ width: '34px', height: '34px' }} onClick={onClose}>
+          <button className="btn-modal-close" onClick={onClose} title="Close" aria-label="Close">
             <X size={18} />
           </button>
         </div>

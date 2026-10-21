@@ -9,7 +9,7 @@ import { motionService } from './services/motionService';
 import { HEROES } from './data/heroesData';
 import { ITEMS } from './data/itemsData';
 import { BEASTS } from './data/beastsData';
-import { Disturbance, Waypoint, CapturedBeast, Mark, GameState, Hero, Item, ToastNotification, CauldronSlot } from './types';
+import { Disturbance, Waypoint, CapturedBeast, Mark, GameState, Hero, Item, ToastNotification, CauldronSlot, MentorId, MasterclassLesson } from './types';
 
 import MapEngine from './components/MapEngine';
 import EncounterModal from './components/EncounterModal';
@@ -26,6 +26,7 @@ import ApparitionModal, { ApparitionTarget } from './components/ApparitionModal'
 import RaidModal from './components/RaidModal';
 import ApothecaryShopModal from './components/ApothecaryShopModal';
 import CharacterProgressionModal from './components/CharacterProgressionModal';
+import MentorMasterclassModal from './components/MentorMasterclassModal';
 import { alchemistService } from './services/alchemistService';
 
 // Default initial coordinates (New York City / Woolworth Building MACUSA Headquarters)
@@ -50,6 +51,7 @@ export default function App() {
   const [showItemBag, setShowItemBag] = useState<boolean>(false);
   const [showShop, setShowShop] = useState<boolean>(false);
   const [showCharacterProgression, setShowCharacterProgression] = useState<boolean>(false);
+  const [showMentorModal, setShowMentorModal] = useState<boolean>(false);
   const [apparitionTarget, setApparitionTarget] = useState<ApparitionTarget | null>(null);
   const [isApparating, setIsApparating] = useState<boolean>(false);
   const [isLocationPinned, setIsLocationPinned] = useState<boolean>(false);
@@ -1171,6 +1173,51 @@ export default function App() {
     );
   };
 
+  const handleSelectMentor = (mentorId: MentorId) => {
+    setGameState((prev) => ({
+      ...prev,
+      activeMentorId: mentorId
+    }));
+  };
+
+  const handleCompleteMasterclass = (lesson: MasterclassLesson, bonusKnuts: number) => {
+    setGameState((prev) => {
+      const alreadyCompleted = (prev.completedMasterclasses || []).includes(lesson.id);
+      const updatedMasterclasses = alreadyCompleted
+        ? prev.completedMasterclasses || []
+        : [...(prev.completedMasterclasses || []), lesson.id];
+
+      const currentKnuts = prev.inventory.knuts || 0;
+      const totalKnutsAwarded = lesson.rewardKnuts + (bonusKnuts || 0);
+
+      const currentProgression = prev.characterProgression || alchemistService.normalizeProgression();
+      const xpResult = alchemistService.addXP(
+        currentProgression.alchemistRank,
+        currentProgression.alchemistXP,
+        lesson.rewardXP
+      );
+      const updatedProgression = {
+        alchemistRank: xpResult.newRank,
+        alchemistXP: xpResult.newXP,
+        unlockedTalentPerks: alchemistService.getUnlockedPerks(xpResult.newRank).map((p) => p.id)
+      };
+
+      return {
+        ...prev,
+        completedMasterclasses: updatedMasterclasses,
+        inventory: {
+          ...prev.inventory,
+          knuts: currentKnuts + totalKnutsAwarded
+        },
+        characterProgression: updatedProgression,
+        stats: {
+          ...prev.stats,
+          masterclassesCompleted: (prev.stats.masterclassesCompleted || 0) + (alreadyCompleted ? 0 : 1)
+        }
+      };
+    });
+  };
+
   const unreadTasksCount = gameState.quests.filter((q) => q.current >= q.target && !q.claimed).length;
   const todayStr = new Date().toISOString().slice(0, 10);
   const raidsCompletedToday = gameState.lastRaidDate === todayStr ? (gameState.raidsCompletedToday || 0) : 0;
@@ -1241,6 +1288,7 @@ export default function App() {
             onBrewSuccess={handleBrewSuccess}
             onOpenShop={() => setShowShop(true)}
             onOpenProgression={() => setShowCharacterProgression(true)}
+            onOpenMentors={() => setShowMentorModal(true)}
             onClose={() => {
               setCurrentTab('map');
               setSuitcaseInitialTab('menagerie');
@@ -1267,6 +1315,7 @@ export default function App() {
           hero={hero}
           inventory={gameState.inventory}
           alchemistRank={gameState.characterProgression?.alchemistRank || 1}
+          activeMentorId={gameState.activeMentorId || 'newt'}
           onConsumeItem={handleConsumeItem}
           onCaptureSuccess={handleCaptureSuccess}
           onFlee={handleFlee}
@@ -1484,7 +1533,19 @@ export default function App() {
         />
       )}
 
-      {/* Quick Lure, Satchel Bag, Apothecary Shop & Mastery HUD Buttons */}
+      {showMentorModal && (
+        <MentorMasterclassModal
+          activeMentorId={gameState.activeMentorId || 'newt'}
+          completedMasterclasses={gameState.completedMasterclasses || []}
+          alchemistRank={gameState.characterProgression?.alchemistRank || 1}
+          onSelectMentor={handleSelectMentor}
+          onCompleteMasterclass={handleCompleteMasterclass}
+          onClose={() => setShowMentorModal(false)}
+          onShowToast={showToast}
+        />
+      )}
+
+      {/* Quick Lure, Satchel Bag, Apothecary Shop, Mastery & Mentors HUD Buttons */}
       {currentTab === 'map' && (
         <div
           style={{
@@ -1555,6 +1616,26 @@ export default function App() {
           >
             <span>⭐</span>
             <span>Rank {gameState.characterProgression?.alchemistRank || 1}</span>
+          </button>
+
+          <button
+            onClick={() => setShowMentorModal(true)}
+            className="btn-secondary"
+            style={{
+              padding: '6px 10px',
+              fontSize: '0.74rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px',
+              background: 'rgba(15, 23, 42, 0.92)',
+              borderColor: '#38bdf8',
+              color: '#7dd3fc',
+              boxShadow: '0 0 10px rgba(56, 189, 248, 0.25)'
+            }}
+            title="Wizarding Mentors & Masterclasses"
+          >
+            <span>🎓</span>
+            <span>Mentors</span>
           </button>
         </div>
       )}

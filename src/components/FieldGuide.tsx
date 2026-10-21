@@ -69,8 +69,13 @@ export default function FieldGuide({ caughtBeasts, seenBeasts, onClose }: FieldG
           </div>
         </div>
 
-        <button className="btn-secondary" style={{ padding: '6px 12px', fontSize: '0.8rem' }} onClick={onClose}>
-          Exit
+        <button
+          className="btn-modal-close"
+          onClick={onClose}
+          title="Return to Map"
+          aria-label="Return to Map"
+        >
+          <X size={18} />
         </button>
       </div>
 

@@ -161,7 +161,7 @@ export default function WaypointModal({
           >
             {meta.badge}
           </span>
-          <button className="btn-icon" style={{ width: '34px', height: '34px' }} onClick={onClose} aria-label="Close">
+          <button className="btn-modal-close" onClick={onClose} aria-label="Close" title="Close">
             <X size={18} />
           </button>
         </div>

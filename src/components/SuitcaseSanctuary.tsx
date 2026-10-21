@@ -16,7 +16,8 @@ import {
   ArrowUpDown,
   Search,
   Award,
-  Crown
+  Crown,
+  X
 } from 'lucide-react';
 import { BEASTS } from '../data/beastsData';
 import { ITEMS } from '../data/itemsData';
@@ -56,6 +57,7 @@ interface SuitcaseSanctuaryProps {
   onBrewSuccess?: (isMasterwork: boolean) => void;
   onOpenShop?: () => void;
   onOpenProgression?: () => void;
+  onOpenMentors?: () => void;
   onClose: () => void;
   onShowToast?: (title: string, message: string, type: 'info' | 'success' | 'warning' | 'error' | 'energy' | 'mark') => void;
 }
@@ -82,6 +84,7 @@ export default function SuitcaseSanctuary({
   onBrewSuccess,
   onOpenShop,
   onOpenProgression,
+  onOpenMentors,
   onClose,
   onShowToast
 }: SuitcaseSanctuaryProps) {
@@ -374,12 +377,36 @@ export default function SuitcaseSanctuary({
             </button>
           )}
 
+          {onOpenMentors && (
+            <button
+              onClick={onOpenMentors}
+              style={{
+                padding: '4px 10px',
+                fontSize: '0.72rem',
+                borderRadius: 'var(--radius-full)',
+                border: '1px solid #38bdf8',
+                background: 'rgba(56, 189, 248, 0.15)',
+                color: '#7dd3fc',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                cursor: 'pointer',
+                fontWeight: 700
+              }}
+              title="Open Wizarding Mentors & Masterclasses"
+            >
+              <span>🎓</span>
+              <span>Mentors</span>
+            </button>
+          )}
+
           <button
-            className="btn-secondary"
-            style={{ padding: '5px 12px', fontSize: '0.74rem', borderRadius: 'var(--radius-full)' }}
+            className="btn-modal-close"
             onClick={onClose}
+            title="Return to Map"
+            aria-label="Return to Map"
           >
-            Exit
+            <X size={18} />
           </button>
         </div>
       </div>

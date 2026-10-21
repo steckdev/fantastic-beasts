@@ -311,19 +311,10 @@ export default function ApothecaryShopModal({
                 </button>
               )}
               <button
+                className="btn-modal-close"
                 onClick={onClose}
-                style={{
-                  background: 'rgba(0, 0, 0, 0.65)',
-                  border: '1px solid rgba(255, 255, 255, 0.2)',
-                  color: '#e2e8f0',
-                  borderRadius: '50%',
-                  width: '32px',
-                  height: '32px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer'
-                }}
+                title="Close"
+                aria-label="Close"
               >
                 <X size={18} />
               </button>

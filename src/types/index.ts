@@ -223,6 +223,56 @@ export interface CharacterProgression {
   unlockedTalentPerks: string[];
 }
 
+export type MentorId = 'newt' | 'dumbledore' | 'tina';
+
+export interface MentorInfo {
+  id: MentorId;
+  name: string;
+  title: string;
+  domain: string;
+  quote: string;
+  philosophy: string;
+  sprite: string;
+  accentColor: string;
+  glowColor: string;
+  passivePerkName: string;
+  passivePerkDesc: string;
+  specialtyTip: string;
+}
+
+export interface MasterclassDialogueStep {
+  speaker: string;
+  avatar: string;
+  text: string;
+  loreNote?: string;
+}
+
+export interface MasterclassChoice {
+  id: string;
+  text: string;
+  response: string;
+  isOptimal?: boolean;
+  bonusKnuts?: number;
+}
+
+export interface MasterclassLesson {
+  id: string;
+  mentorId: MentorId;
+  title: string;
+  subtitle: string;
+  domain: string;
+  recommendedLevel: number;
+  rewardXP: number;
+  rewardKnuts: number;
+  rewardTitle: string;
+  dialogue: MasterclassDialogueStep[];
+  interactiveChoice?: {
+    prompt: string;
+    options: MasterclassChoice[];
+  };
+  tacticalTakeaway: string;
+}
+
 export interface GameStats {
   totalEncounters: number;
   totalCaptures: number;
@@ -238,12 +288,15 @@ export interface GameStats {
   ingredientsHarvested?: number;
   potionsUsed?: number;
   shopTransactions?: number;
+  masterclassesCompleted?: number;
 }
 
 export interface GameState {
   heroId: string;
   hasChosenHero: boolean;
   buddyInstanceId: string | null;
+  activeMentorId?: MentorId;
+  completedMasterclasses?: string[];
   totalKmWalked: number;
   totalSteps: number;
   buddyKmProgress: number;
@@ -265,3 +318,4 @@ export interface GameState {
   quests: Quest[];
   settings: GameSettings;
 }
+

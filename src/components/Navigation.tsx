@@ -31,20 +31,23 @@ export default function Navigation({ currentTab, onSelectTab, unreadTasksCount, 
     <nav
       style={{
         position: 'fixed',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        height: 'calc(64px + var(--safe-bottom))',
-        paddingBottom: 'var(--safe-bottom)',
-        background: 'rgba(11, 15, 25, 0.92)',
-        backdropFilter: 'blur(16px)',
-        WebkitBackdropFilter: 'blur(16px)',
-        borderTop: '1px solid var(--border-gold)',
+        bottom: 'calc(var(--safe-bottom) + 8px)',
+        left: '12px',
+        right: '12px',
+        maxWidth: '520px',
+        margin: '0 auto',
+        height: '62px',
+        background: 'rgba(11, 15, 25, 0.94)',
+        backdropFilter: 'blur(18px)',
+        WebkitBackdropFilter: 'blur(18px)',
+        borderRadius: '24px',
+        border: '1.5px solid rgba(251, 191, 36, 0.4)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-around',
         zIndex: 500,
-        boxShadow: '0 -4px 20px rgba(0,0,0,0.5)'
+        boxShadow: '0 12px 35px rgba(0, 0, 0, 0.8), 0 0 20px rgba(217, 119, 6, 0.25)',
+        padding: '0 4px'
       }}
     >
       {tabs.map((t) => {

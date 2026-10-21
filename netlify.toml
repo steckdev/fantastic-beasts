@@ -4,6 +4,16 @@
 
 [build.environment]
   VITE_GOOGLE_MAPS_API_KEY = "AIzaSyCkIp8w2vY1aAnxAXpd8x5siTbXcnva_rk"
+  NETLIFY_ENABLE_DRAWER = "false"
+
+[context.production.environment]
+  NETLIFY_ENABLE_DRAWER = "false"
+
+[context.deploy-preview.environment]
+  NETLIFY_ENABLE_DRAWER = "false"
+
+[context.branch-deploy.environment]
+  NETLIFY_ENABLE_DRAWER = "false"
 
 [[redirects]]
   from = "/*"

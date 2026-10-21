@@ -5,14 +5,16 @@ import { sounds } from '../services/soundService';
 import { ITEMS } from '../data/itemsData';
 import { SPELLS, getSpellAffinity } from '../data/spellsData';
 import { POTION_RECIPES } from '../data/potionsData';
-import { Disturbance, Hero, Mark, Item, Spell, PotionRecipe, PotionEffectType } from '../types';
+import { Disturbance, Hero, Mark, Item, Spell, PotionRecipe, PotionEffectType, MentorId } from '../types';
 import { getMoMClassification } from '../data/ministryClassification';
+import { MENTORS, getMentorTacticalAdvice } from '../data/mentorData';
 
 interface EncounterModalProps {
   disturbance: Disturbance;
   hero: Hero;
   inventory: Record<string, number>;
   alchemistRank?: number;
+  activeMentorId?: MentorId;
   onConsumeItem: (itemKey: string, amount?: number) => void;
   onCaptureSuccess: (data: { beastId: string; cp: number; mark: Mark | null }) => void;
   onFlee: (disturbanceId: string) => void;
@@ -28,6 +30,7 @@ export default function EncounterModal({
   hero,
   inventory,
   alchemistRank = 1,
+  activeMentorId = 'newt',
   onConsumeItem,
   onCaptureSuccess,
   onFlee,
@@ -39,6 +42,8 @@ export default function EncounterModal({
 }: EncounterModalProps) {
   const { beast, cp, mark } = disturbance;
   const mom = getMoMClassification(beast.classification);
+  const mentor = MENTORS[activeMentorId] || MENTORS.newt;
+  const tacticalAdvice = getMentorTacticalAdvice(activeMentorId, disturbance, inventory);
 
   const [phase, setPhase] = useState<'encounter' | 'casting' | 'capturing' | 'caught' | 'fled'>('encounter');
   const [wobbleCount, setWobbleCount] = useState<number>(0);
@@ -70,9 +75,11 @@ export default function EncounterModal({
   const surpriseBonus = activePotions.invisibility ? 0.25 : 0;
   const baseCatch = beast.baseCatchRate;
   const heroBonus = hero.catchAccuracyBonus || 1.0;
+  const mentorMasterfulBonus = activeMentorId === 'dumbledore' ? 1.4 : 1.0;
+  const tinaThreatBonus = activeMentorId === 'tina' && beast.dangerRating >= 4 ? 1.30 : 1.0;
   const accuracyMultiplier =
     castAccuracy === 'masterful'
-      ? (alchemistRank >= 9 && activePotions.focus ? 1.8 : 1.6)
+      ? (alchemistRank >= 9 && activePotions.focus ? 1.8 : 1.6) * mentorMasterfulBonus
       : castAccuracy === 'great'
       ? 1.35
       : castAccuracy === 'good'
@@ -90,7 +97,8 @@ export default function EncounterModal({
         heroBonus *
         accuracyMultiplier *
         spellBonusMultiplier *
-        maximaMultiplier
+        maximaMultiplier *
+        tinaThreatBonus
     )
   );
 
@@ -388,7 +396,8 @@ export default function EncounterModal({
 
     onConsumeItem(treatKey, 1);
     sounds.playPurr();
-    const bonus = (treat.calmPower || 0.3) * (hero.bonusTreatEffect || 1.0);
+    const mentorTreatBonus = activeMentorId === 'newt' ? 1.35 : 1.0;
+    const bonus = (treat.calmPower || 0.3) * (hero.bonusTreatEffect || 1.0) * mentorTreatBonus;
     setTreatBonus((prev) => prev + bonus);
     setShowTreatDrawer(false);
 
@@ -478,9 +487,9 @@ export default function EncounterModal({
 
             <button
               onClick={onClose}
-              className="btn-icon"
-              style={{ width: '36px', height: '36px' }}
+              className="btn-modal-close"
               title="Leave encounter"
+              aria-label="Leave encounter"
             >
               <X size={18} />
             </button>
@@ -515,6 +524,84 @@ export default function EncounterModal({
             </div>
           )}
         </div>
+
+        {/* Tactical Mentor Coaching Chip */}
+        {phase === 'encounter' && (
+          <div
+            style={{
+              width: '100%',
+              maxWidth: '380px',
+              zIndex: 10,
+              margin: '4px 0 2px',
+              padding: '6px 10px',
+              borderRadius: '12px',
+              background: 'rgba(15, 23, 42, 0.9)',
+              border: `1.5px solid ${tacticalAdvice.urgency === 'critical' ? '#ef4444' : tacticalAdvice.urgency === 'caution' ? '#f59e0b' : mentor.accentColor}`,
+              boxShadow: `0 4px 14px ${tacticalAdvice.urgency === 'critical' ? 'rgba(239, 68, 68, 0.25)' : mentor.glowColor}`,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px'
+            }}
+          >
+            <img
+              src={mentor.sprite}
+              alt={mentor.name}
+              style={{
+                width: '36px',
+                height: '36px',
+                borderRadius: '50%',
+                border: `1.5px solid ${mentor.accentColor}`,
+                objectFit: 'cover',
+                flexShrink: 0,
+                background: '#090d16'
+              }}
+            />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '4px' }}>
+                <span
+                  style={{
+                    fontSize: '0.68rem',
+                    fontWeight: 800,
+                    color: mentor.accentColor,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.04em'
+                  }}
+                >
+                  {mentor.name.split(' ')[0]}'s Coaching
+                </span>
+                {tacticalAdvice.urgency !== 'normal' && (
+                  <span
+                    style={{
+                      fontSize: '0.6rem',
+                      fontWeight: 800,
+                      color: tacticalAdvice.urgency === 'critical' ? '#fca5a5' : '#fef08a',
+                      background: tacticalAdvice.urgency === 'critical' ? 'rgba(239, 68, 68, 0.35)' : 'rgba(245, 158, 11, 0.35)',
+                      padding: '1px 5px',
+                      borderRadius: '4px'
+                    }}
+                  >
+                    {tacticalAdvice.urgency === 'critical' ? 'CRITICAL RISK' : 'FIELD CAUTION'}
+                  </span>
+                )}
+              </div>
+              <p
+                style={{
+                  margin: '1px 0 0',
+                  fontSize: '0.74rem',
+                  color: '#e2e8f0',
+                  lineHeight: '1.25',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  display: '-webkit-box',
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: 'vertical'
+                }}
+              >
+                "{tacticalAdvice.text}"
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Center Stage: Beast & Catch Ring */}
         <div

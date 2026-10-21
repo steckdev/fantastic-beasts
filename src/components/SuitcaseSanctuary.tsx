@@ -51,6 +51,11 @@ interface SuitcaseSanctuaryProps {
   onConsumeItem?: (itemKey: string, amount?: number) => void;
   onAddInventoryItem?: (itemKey: string, amount: number) => void;
   onUpdateCauldrons?: (cauldrons: CauldronSlot[]) => void;
+  alchemistRank?: number;
+  cauldronSlotsCount?: number;
+  onBrewSuccess?: (isMasterwork: boolean) => void;
+  onOpenShop?: () => void;
+  onOpenProgression?: () => void;
   onClose: () => void;
   onShowToast?: (title: string, message: string, type: 'info' | 'success' | 'warning' | 'error' | 'energy' | 'mark') => void;
 }
@@ -62,6 +67,8 @@ export default function SuitcaseSanctuary({
   buddyInstanceId,
   cauldrons,
   initialTab = 'menagerie',
+  alchemistRank = 1,
+  cauldronSlotsCount = 2,
   onSetBuddy,
   onFeedBeast,
   onPetBeast,
@@ -72,6 +79,9 @@ export default function SuitcaseSanctuary({
   onConsumeItem,
   onAddInventoryItem,
   onUpdateCauldrons,
+  onBrewSuccess,
+  onOpenShop,
+  onOpenProgression,
   onClose,
   onShowToast
 }: SuitcaseSanctuaryProps) {
@@ -341,13 +351,37 @@ export default function SuitcaseSanctuary({
           </div>
         </div>
 
-        <button
-          className="btn-secondary"
-          style={{ padding: '5px 12px', fontSize: '0.74rem', borderRadius: 'var(--radius-full)' }}
-          onClick={onClose}
-        >
-          Exit
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {onOpenProgression && (
+            <button
+              onClick={onOpenProgression}
+              style={{
+                padding: '4px 10px',
+                fontSize: '0.72rem',
+                borderRadius: 'var(--radius-full)',
+                border: '1px solid #fbbf24',
+                background: 'rgba(251, 191, 36, 0.15)',
+                color: '#fef08a',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                cursor: 'pointer',
+                fontWeight: 700
+              }}
+            >
+              <span>⭐</span>
+              <span>Rank {alchemistRank}</span>
+            </button>
+          )}
+
+          <button
+            className="btn-secondary"
+            style={{ padding: '5px 12px', fontSize: '0.74rem', borderRadius: 'var(--radius-full)' }}
+            onClick={onClose}
+          >
+            Exit
+          </button>
+        </div>
       </div>
 
       {/* Sanctuary Section Switcher: Menagerie vs Potions Lab */}
@@ -427,9 +461,13 @@ export default function SuitcaseSanctuary({
             <PotionsLabModal
               inventory={inventory}
               cauldrons={cauldrons}
+              alchemistRank={alchemistRank}
+              cauldronSlotsCount={cauldronSlotsCount}
               onConsumeItem={onConsumeItem || (() => {})}
               onAddInventoryItem={onAddInventoryItem || (() => {})}
               onUpdateCauldrons={onUpdateCauldrons || (() => {})}
+              onBrewSuccess={onBrewSuccess}
+              onOpenShop={onOpenShop}
               onShowToast={onShowToast}
             />
           </div>

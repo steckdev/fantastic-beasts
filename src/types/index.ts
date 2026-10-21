@@ -208,6 +208,21 @@ export interface GameSettings {
   cameraTilt3D?: boolean;
 }
 
+export interface AlchemistTalentPerk {
+  id: string;
+  rank: number;
+  name: string;
+  desc: string;
+  icon: string;
+  category: 'brewing' | 'harvest' | 'combat' | 'efficiency';
+}
+
+export interface CharacterProgression {
+  alchemistRank: number; // 1 to 10
+  alchemistXP: number;
+  unlockedTalentPerks: string[];
+}
+
 export interface GameStats {
   totalEncounters: number;
   totalCaptures: number;
@@ -218,6 +233,11 @@ export interface GameStats {
   kmWalked: number;
   treatsFed: number;
   raidsWon?: number;
+  potionsBrewed?: number;
+  masterworkBrews?: number;
+  ingredientsHarvested?: number;
+  potionsUsed?: number;
+  shopTransactions?: number;
 }
 
 export interface GameState {
@@ -236,6 +256,8 @@ export interface GameState {
   activeLureUntil: number | null;
   cauldrons?: CauldronSlot[];
   activeBuffs?: Record<string, ActivePotionBuff>;
+  characterProgression?: CharacterProgression;
+  cauldronSlotsCount?: number;
   raidsCompletedToday?: number;
   lastRaidDate?: string;
   isLocationPinned?: boolean;

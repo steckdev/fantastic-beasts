@@ -450,6 +450,101 @@ class SoundService {
     osc.start(t);
     osc.stop(t + 0.35);
   }
+
+  playCoinChime(): void {
+    if (!this.enabled) return;
+    this.init();
+    if (!this.ctx) return;
+
+    // Metallic double clink of coins
+    [0, 0.08].forEach((delay, idx) => {
+      const t = this.ctx!.currentTime + delay;
+      const osc = this.ctx!.createOscillator();
+      const gain = this.ctx!.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(idx === 0 ? 1200 : 1600, t);
+      osc.frequency.exponentialRampToValueAtTime(2400, t + 0.08);
+
+      gain.gain.setValueAtTime(0.18, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+
+      osc.connect(gain);
+      gain.connect(this.ctx!.destination);
+      osc.start(t);
+      osc.stop(t + 0.12);
+    });
+  }
+
+  playLevelUp(): void {
+    if (!this.enabled) return;
+    this.init();
+    if (!this.ctx) return;
+
+    // Uplifting brass triumphant fanfare
+    const notes = [523.25, 659.25, 783.99, 1046.5, 1318.5]; // C5, E5, G5, C6, E6
+    notes.forEach((freq, idx) => {
+      const t = this.ctx!.currentTime + idx * 0.09;
+      const osc = this.ctx!.createOscillator();
+      const gain = this.ctx!.createGain();
+
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, t);
+
+      gain.gain.setValueAtTime(0.22, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+
+      osc.connect(gain);
+      gain.connect(this.ctx!.destination);
+      osc.start(t);
+      osc.stop(t + 0.35);
+    });
+  }
+
+  playUiClick(): void {
+    if (!this.enabled) return;
+    this.init();
+    if (!this.ctx) return;
+
+    const t = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(800, t);
+    osc.frequency.exponentialRampToValueAtTime(400, t + 0.04);
+
+    gain.gain.setValueAtTime(0.08, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    osc.start(t);
+    osc.stop(t + 0.05);
+  }
+
+  playErrorSound(): void {
+    if (!this.enabled) return;
+    this.init();
+    if (!this.ctx) return;
+
+    const t = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(220, t);
+    osc.frequency.exponentialRampToValueAtTime(110, t + 0.2);
+
+    gain.gain.setValueAtTime(0.2, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    osc.start(t);
+    osc.stop(t + 0.2);
+  }
 }
 
 export const sounds = new SoundService();
+

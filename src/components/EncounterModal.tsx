@@ -12,6 +12,7 @@ interface EncounterModalProps {
   disturbance: Disturbance;
   hero: Hero;
   inventory: Record<string, number>;
+  alchemistRank?: number;
   onConsumeItem: (itemKey: string, amount?: number) => void;
   onCaptureSuccess: (data: { beastId: string; cp: number; mark: Mark | null }) => void;
   onFlee: (disturbanceId: string) => void;
@@ -19,19 +20,22 @@ interface EncounterModalProps {
   onOpenSanctuary?: () => void;
   onShowToast?: (title: string, message: string, type: 'info' | 'success' | 'warning' | 'error' | 'energy' | 'mark') => void;
   onReplenishEnergy?: (amount: number) => void;
+  onPotionUsed?: (potionId: string) => void;
 }
 
 export default function EncounterModal({
   disturbance,
   hero,
   inventory,
+  alchemistRank = 1,
   onConsumeItem,
   onCaptureSuccess,
   onFlee,
   onClose,
   onOpenSanctuary,
   onShowToast,
-  onReplenishEnergy
+  onReplenishEnergy,
+  onPotionUsed
 }: EncounterModalProps) {
   const { beast, cp, mark } = disturbance;
   const mom = getMoMClassification(beast.classification);
@@ -61,13 +65,19 @@ export default function EncounterModal({
   const spellAffinity = getSpellAffinity(selectedSpell, beast.type);
   const spellBonusMultiplier = spellAffinity.isSuperEffective ? 1.25 : 1.0;
 
-  // Tactical potion modifiers
-  const maximaMultiplier = activePotions.maxima ? 1.4 : 1.0;
+  // Tactical potion modifiers (enhanced by Alchemist Talent Perks)
+  const maximaMultiplier = activePotions.maxima ? (alchemistRank >= 6 ? 1.5 : 1.4) : 1.0;
   const surpriseBonus = activePotions.invisibility ? 0.25 : 0;
   const baseCatch = beast.baseCatchRate;
   const heroBonus = hero.catchAccuracyBonus || 1.0;
   const accuracyMultiplier =
-    castAccuracy === 'masterful' ? 1.6 : castAccuracy === 'great' ? 1.35 : castAccuracy === 'good' ? 1.15 : 1.0;
+    castAccuracy === 'masterful'
+      ? (alchemistRank >= 9 && activePotions.focus ? 1.8 : 1.6)
+      : castAccuracy === 'great'
+      ? 1.35
+      : castAccuracy === 'good'
+      ? 1.15
+      : 1.0;
   const dangerPenalty =
     beastStunnedTurns > 0 ? 1.0 : beast.dangerRating >= 4 ? (beast.dangerRating === 5 ? 0.72 : 0.85) : 1.0;
   const cpDifficultyFactor = Math.max(0.65, 1 - (cp / (beast.maxCP * 1.6)) * 0.35);
@@ -201,39 +211,80 @@ export default function EncounterModal({
     onConsumeItem(potion.id, 1);
     sounds.playDrinkPotion();
 
+    if (onPotionUsed) {
+      onPotionUsed(potion.id);
+    }
+
     if (potion.effectType === 'wiggenweld') {
+      // Wiggenweld Mastery (Rank 2): restores +65 Spell Energy (up from +50)
+      const energyRestored = alchemistRank >= 2 ? 65 : 50;
       if (onReplenishEnergy) {
-        onReplenishEnergy(50);
+        onReplenishEnergy(energyRestored);
       } else {
-        onConsumeItem('spell_energy', -50);
+        onConsumeItem('spell_energy', -energyRestored);
       }
       confetti({ particleCount: 30, spread: 50, colors: ['#10b981', '#34d399', '#fde047'] });
-      if (onShowToast) onShowToast('Vitality Restored!', 'Drank Wiggenweld Potion! +50 Spell Energy restored!', 'energy');
+      if (onShowToast) {
+        onShowToast(
+          'Vitality Restored!',
+          `Drank Wiggenweld Potion! +${energyRestored} Spell Energy restored!${alchemistRank >= 2 ? ' (Wiggenweld Mastery)' : ''}`,
+          'energy'
+        );
+      }
     } else if (potion.effectType === 'thunderbrew') {
       sounds.playThunderbrew();
-      setBeastStunnedTurns(3);
+      // Tempest Storm Surge (Rank 7): 4 turns stun (up from 3)
+      const stunTurns = alchemistRank >= 7 ? 4 : 3;
+      setBeastStunnedTurns(stunTurns);
       setActivePotions((prev) => ({ ...prev, thunderbrew: true }));
       confetti({ particleCount: 40, spread: 60, colors: ['#a855f7', '#38bdf8', '#fde047'] });
-      if (onShowToast) onShowToast('Tempest Stun!', 'Thunderbrew struck the beast with lightning! STUNNED for 3 turns!', 'mark');
+      if (onShowToast) {
+        onShowToast(
+          'Tempest Stun!',
+          `Thunderbrew struck with lightning! STUNNED for ${stunTurns} turns!${alchemistRank >= 7 ? ' (Storm Surge)' : ''}`,
+          'mark'
+        );
+      }
     } else if (potion.effectType === 'focus') {
       sounds.playFocusChime();
       setActivePotions((prev) => ({ ...prev, focus: true }));
       confetti({ particleCount: 30, spread: 50, colors: ['#fbbf24', '#fde047', '#38bdf8'] });
-      if (onShowToast) onShowToast('Mind Focused!', 'Golden guide runes projected! Next cast is guaranteed MASTERFUL!', 'success');
+      if (onShowToast) {
+        onShowToast(
+          'Mind Focused!',
+          `Golden guide runes projected! Next cast is guaranteed MASTERFUL!${alchemistRank >= 9 ? ' (Celestial Glyph 1.8x)' : ''}`,
+          'success'
+        );
+      }
     } else if (potion.effectType === 'maxima') {
       sounds.playSparkle();
       setActivePotions((prev) => ({ ...prev, maxima: true }));
       confetti({ particleCount: 35, spread: 55, colors: ['#ef4444', '#f97316', '#fbbf24'] });
-      if (onShowToast) onShowToast('Spell Power Surged!', 'Maxima Potion consumed! Wand charm catch power surged +40%!', 'success');
+      const boostPct = alchemistRank >= 6 ? '+50%' : '+40%';
+      if (onShowToast) {
+        onShowToast(
+          'Spell Power Surged!',
+          `Maxima Potion consumed! Wand charm catch power surged ${boostPct}!${alchemistRank >= 6 ? ' (Maxima Overdrive)' : ''}`,
+          'success'
+        );
+      }
     } else if (potion.effectType === 'invisibility') {
       setActivePotions((prev) => ({ ...prev, invisibility: true }));
       confetti({ particleCount: 30, spread: 50, colors: ['#38bdf8', '#cbd5e1', '#ffffff'] });
       if (onShowToast) onShowToast('Camouflaged!', 'Invisibility Potion active! 0% flee rate & +25% surprise ambush bonus!', 'success');
     } else if (potion.effectType === 'edurus') {
-      setEdurusShieldTurns(2);
+      // Barkskin Aegis (Rank 4): 3 turns shield (up from 2)
+      const shieldTurns = alchemistRank >= 4 ? 3 : 2;
+      setEdurusShieldTurns(shieldTurns);
       setActivePotions((prev) => ({ ...prev, edurus: true }));
       confetti({ particleCount: 30, spread: 50, colors: ['#d97706', '#b45309', '#fde047'] });
-      if (onShowToast) onShowToast('Barkskin Active!', 'Edurus Potion hardened your defenses! Beast cannot flee for 2 turns!', 'success');
+      if (onShowToast) {
+        onShowToast(
+          'Barkskin Active!',
+          `Edurus Potion hardened defenses! Beast cannot flee for ${shieldTurns} turns!${alchemistRank >= 4 ? ' (Barkskin Aegis)' : ''}`,
+          'success'
+        );
+      }
     }
 
     setShowPotionBelt(false);

@@ -1,5 +1,6 @@
 import { GameState, Quest } from '../types';
 import { bondService } from './bondService';
+import { alchemistService } from './alchemistService';
 
 const STORAGE_KEY = 'fantastic_beasts_save_v2';
 
@@ -17,6 +18,26 @@ export function generateDailyQuests(): Quest[] {
       target: 2,
       current: 0,
       reward: { knuts: 180, spell_energy: 25 },
+      claimed: false,
+      isDaily: true
+    },
+    {
+      id: 'daily_brew_potions',
+      title: 'Cauldron Concoctions',
+      desc: 'Brew 2 potions in Newt\'s suitcase laboratory or table cauldrons.',
+      target: 2,
+      current: 0,
+      reward: { knuts: 200, ing_dittany: 2 },
+      claimed: false,
+      isDaily: true
+    },
+    {
+      id: 'daily_use_potion',
+      title: 'Tactical Alchemy',
+      desc: 'Deploy 1 tactical potion during a beast encounter.',
+      target: 1,
+      current: 0,
+      reward: { knuts: 180, potion_wiggenweld: 1 },
       claimed: false,
       isDaily: true
     },
@@ -115,6 +136,8 @@ const DEFAULT_STATE: GameState = {
     { id: 'cauldron_2', recipeId: null, startedAt: null, finishesAt: null, isReady: false },
     { id: 'cauldron_hopping', recipeId: 'potion_wiggenweld', startedAt: Date.now() - 35000, finishesAt: Date.now() - 5000, isHoppingPot: true, isReady: true }
   ],
+  cauldronSlotsCount: 2,
+  characterProgression: alchemistService.normalizeProgression(),
   activeBuffs: {},
   stats: {
     totalEncounters: 0,
@@ -124,7 +147,13 @@ const DEFAULT_STATE: GameState = {
     masterfulCasts: 0,
     marksDiscovered: 0,
     kmWalked: 0,
-    treatsFed: 0
+    treatsFed: 0,
+    raidsWon: 0,
+    potionsBrewed: 0,
+    masterworkBrews: 0,
+    ingredientsHarvested: 0,
+    potionsUsed: 0,
+    shopTransactions: 0
   },
   quests: generateDailyQuests(),
   settings: {
@@ -177,6 +206,30 @@ export function loadGameState(): GameState {
           isDaily: true
         });
       }
+      if (!quests.some((q) => q.id === 'daily_brew_potions')) {
+        quests.push({
+          id: 'daily_brew_potions',
+          title: 'Cauldron Concoctions',
+          desc: 'Brew 2 potions in Newt\'s suitcase laboratory or table cauldrons.',
+          target: 2,
+          current: 0,
+          reward: { knuts: 200, ing_dittany: 2 },
+          claimed: false,
+          isDaily: true
+        });
+      }
+      if (!quests.some((q) => q.id === 'daily_use_potion')) {
+        quests.push({
+          id: 'daily_use_potion',
+          title: 'Tactical Alchemy',
+          desc: 'Deploy 1 tactical potion during a beast encounter.',
+          target: 1,
+          current: 0,
+          reward: { knuts: 180, potion_wiggenweld: 1 },
+          claimed: false,
+          isDaily: true
+        });
+      }
     }
 
     const suitcase = (parsed.suitcase || DEFAULT_STATE.suitcase).map((b) => bondService.normalizeBeast(b));
@@ -190,6 +243,8 @@ export function loadGameState(): GameState {
       attemptedDisturbances: parsed.attemptedDisturbances || {},
       inventory: { ...DEFAULT_STATE.inventory, ...(parsed.inventory || {}) },
       cauldrons: parsed.cauldrons && parsed.cauldrons.length > 0 ? parsed.cauldrons : DEFAULT_STATE.cauldrons,
+      cauldronSlotsCount: parsed.cauldronSlotsCount || DEFAULT_STATE.cauldronSlotsCount || 2,
+      characterProgression: alchemistService.normalizeProgression(parsed.characterProgression),
       activeBuffs: parsed.activeBuffs || {},
       stats: { ...DEFAULT_STATE.stats, ...(parsed.stats || {}) },
       settings: { ...DEFAULT_STATE.settings, ...(parsed.settings || {}) }

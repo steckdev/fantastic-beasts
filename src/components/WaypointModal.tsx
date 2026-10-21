@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import confetti from 'canvas-confetti';
-import { X, Sparkles, Zap, Lock, Beer, Leaf, FlaskConical, Clock } from 'lucide-react';
+import { X, Sparkles, Zap, Lock, Beer, Leaf, FlaskConical, Clock, ShoppingBag } from 'lucide-react';
 import { sounds } from '../services/soundService';
 import { ITEMS } from '../data/itemsData';
 import { Waypoint } from '../types';
@@ -13,6 +13,7 @@ interface WaypointModalProps {
   onClose: () => void;
   onApparate?: () => void;
   onOpenPotionsLab?: () => void;
+  onOpenShop?: () => void;
 }
 
 export default function WaypointModal({
@@ -22,7 +23,8 @@ export default function WaypointModal({
   onSpinSuccess,
   onClose,
   onApparate,
-  onOpenPotionsLab
+  onOpenPotionsLab,
+  onOpenShop
 }: WaypointModalProps) {
   const [isInteracting, setIsInteracting] = useState<boolean>(false);
   const [rewards, setRewards] = useState<Record<string, number> | null>(null);
@@ -372,31 +374,81 @@ export default function WaypointModal({
                 <span>Enter Potions Cauldron Station</span>
               </button>
             )}
-          </div>
-        )}
 
-        {rewards && (
-          <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {waypoint.type === 'apothecary' && onOpenPotionsLab && (
+            {onOpenShop && (
               <button
-                className="btn-magical"
+                className="btn-secondary"
                 onClick={() => {
                   onClose();
-                  onOpenPotionsLab();
+                  onOpenShop();
                 }}
                 style={{
                   width: '100%',
-                  padding: '12px',
-                  background: 'linear-gradient(135deg, #7c3aed, #9333ea)',
-                  borderColor: '#c084fc',
-                  fontSize: '0.86rem',
+                  padding: '10px',
+                  fontSize: '0.84rem',
+                  borderColor: 'rgba(251, 191, 36, 0.4)',
+                  color: '#fef08a',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: '6px'
                 }}
               >
-                <FlaskConical size={16} />
+                <ShoppingBag size={15} color="#fbbf24" />
+                <span>Enter Apothecary & Reagents Shop</span>
+              </button>
+            )}
+          </div>
+        )}
+
+        {rewards && (
+          <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {onOpenShop && (
+              <button
+                className="btn-magical"
+                onClick={() => {
+                  onClose();
+                  onOpenShop();
+                }}
+                style={{
+                  width: '100%',
+                  padding: '11px',
+                  background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                  borderColor: '#fbbf24',
+                  fontSize: '0.86rem',
+                  color: '#18120e',
+                  fontWeight: 900,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px'
+                }}
+              >
+                <ShoppingBag size={16} color="#18120e" />
+                <span>Trade in Apothecary Shop</span>
+              </button>
+            )}
+
+            {waypoint.type === 'apothecary' && onOpenPotionsLab && (
+              <button
+                className="btn-secondary"
+                onClick={() => {
+                  onClose();
+                  onOpenPotionsLab();
+                }}
+                style={{
+                  width: '100%',
+                  padding: '11px',
+                  borderColor: '#c084fc',
+                  color: '#f5d0fe',
+                  fontSize: '0.84rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px'
+                }}
+              >
+                <FlaskConical size={16} color="#c084fc" />
                 <span>Brew with Harvested Reagents</span>
               </button>
             )}

@@ -24,6 +24,9 @@ import Toast from './components/Toast';
 import ItemBagModal from './components/ItemBagModal';
 import ApparitionModal, { ApparitionTarget } from './components/ApparitionModal';
 import RaidModal from './components/RaidModal';
+import ApothecaryShopModal from './components/ApothecaryShopModal';
+import CharacterProgressionModal from './components/CharacterProgressionModal';
+import { alchemistService } from './services/alchemistService';
 
 // Default initial coordinates (New York City / Woolworth Building MACUSA Headquarters)
 const DEFAULT_LAT = 40.7124;
@@ -45,6 +48,8 @@ export default function App() {
   const [showQuests, setShowQuests] = useState<boolean>(false);
   const [showSettings, setShowSettings] = useState<boolean>(false);
   const [showItemBag, setShowItemBag] = useState<boolean>(false);
+  const [showShop, setShowShop] = useState<boolean>(false);
+  const [showCharacterProgression, setShowCharacterProgression] = useState<boolean>(false);
   const [apparitionTarget, setApparitionTarget] = useState<ApparitionTarget | null>(null);
   const [isApparating, setIsApparating] = useState<boolean>(false);
   const [isLocationPinned, setIsLocationPinned] = useState<boolean>(false);
@@ -660,16 +665,165 @@ export default function App() {
     }
   };
 
+  // Alchemist XP & Rank Advancement
+  const handleAddAlchemistXP = (amount: number) => {
+    setGameState((prev) => {
+      const prog = prev.characterProgression || alchemistService.normalizeProgression();
+      const res = alchemistService.addXP(prog.alchemistRank, prog.alchemistXP, amount);
+
+      if (res.didRankUp && res.unlockedPerk) {
+        sounds.playLevelUp();
+        confetti({
+          particleCount: 65,
+          spread: 75,
+          origin: { y: 0.4 },
+          colors: ['#fbbf24', '#f59e0b', '#10b981', '#a855f7']
+        });
+        showToast(
+          'ALCHEMICAL RANK UP!',
+          `Promoted to Rank ${res.newRank}: ${alchemistService.getRankInfo(res.newRank).title}! Unlocked: ${res.unlockedPerk.name}!`,
+          'mark'
+        );
+      }
+
+      return {
+        ...prev,
+        characterProgression: {
+          alchemistRank: res.newRank,
+          alchemistXP: res.newXP,
+          unlockedTalentPerks: alchemistService.getUnlockedPerks(res.newRank).map((p) => p.id)
+        }
+      };
+    });
+  };
+
+  // Cauldron brew success callback
+  const handleBrewSuccess = (isMasterwork: boolean) => {
+    const xpGain = isMasterwork ? 60 : 30;
+    setGameState((prev) => {
+      const stats = {
+        ...prev.stats,
+        potionsBrewed: (prev.stats.potionsBrewed || 0) + 1,
+        masterworkBrews: isMasterwork ? (prev.stats.masterworkBrews || 0) + 1 : (prev.stats.masterworkBrews || 0)
+      };
+
+      // Progress daily brew quest
+      const quests = prev.quests.map((q) => {
+        if (q.id === 'daily_brew_potions') {
+          return { ...q, current: Math.min(q.target, q.current + 1) };
+        }
+        return q;
+      });
+
+      return {
+        ...prev,
+        stats,
+        quests
+      };
+    });
+    handleAddAlchemistXP(xpGain);
+  };
+
+  // Tactical potion deployed in encounter
+  const handleTacticalPotionUsed = (_potionId: string) => {
+    setGameState((prev) => {
+      const stats = {
+        ...prev.stats,
+        potionsUsed: (prev.stats.potionsUsed || 0) + 1
+      };
+
+      const quests = prev.quests.map((q) => {
+        if (q.id === 'daily_use_potion') {
+          return { ...q, current: Math.min(q.target, q.current + 1) };
+        }
+        return q;
+      });
+
+      return {
+        ...prev,
+        stats,
+        quests
+      };
+    });
+    handleAddAlchemistXP(20);
+  };
+
+  // Apothecary Shop purchase
+  const handleShopBuy = (itemKey: string, costKnuts: number, count: number = 1) => {
+    setGameState((prev) => {
+      const inv = { ...prev.inventory };
+      inv.knuts = Math.max(0, (inv.knuts || 0) - costKnuts);
+      inv[itemKey] = (inv[itemKey] || 0) + count;
+      const stats = {
+        ...prev.stats,
+        shopTransactions: (prev.stats.shopTransactions || 0) + 1
+      };
+      return {
+        ...prev,
+        inventory: inv,
+        stats
+      };
+    });
+    handleAddAlchemistXP(15);
+  };
+
+  // Apothecary Shop sale of gathered flora
+  const handleShopSell = (itemKey: string, knutsEarned: number, count: number = 1) => {
+    setGameState((prev) => {
+      const inv = { ...prev.inventory };
+      inv[itemKey] = Math.max(0, (inv[itemKey] || 0) - count);
+      inv.knuts = (inv.knuts || 0) + knutsEarned;
+      const stats = {
+        ...prev.stats,
+        shopTransactions: (prev.stats.shopTransactions || 0) + 1
+      };
+      return {
+        ...prev,
+        inventory: inv,
+        stats
+      };
+    });
+    handleAddAlchemistXP(15);
+  };
+
+  // Upgrade Cauldron slots from shop workshop
+  const handleUpgradeCauldrons = (newCount: number, costKnuts: number) => {
+    setGameState((prev) => {
+      const inv = { ...prev.inventory };
+      inv.knuts = Math.max(0, (inv.knuts || 0) - costKnuts);
+      const cauldrons = prev.cauldrons ? [...prev.cauldrons] : [];
+      if (!cauldrons.some((c) => c.id === `cauldron_${newCount}`)) {
+        cauldrons.unshift({ id: `cauldron_${newCount}`, recipeId: null, startedAt: null, finishesAt: null, isReady: false });
+      }
+      return {
+        ...prev,
+        inventory: inv,
+        cauldronSlotsCount: newCount,
+        cauldrons,
+        stats: {
+          ...prev.stats,
+          shopTransactions: (prev.stats.shopTransactions || 0) + 1
+        }
+      };
+    });
+    handleAddAlchemistXP(50);
+  };
+
   // Waypoint Spin Success
   const handleWaypointSpinSuccess = (waypointId: string, rewards: Record<string, number>) => {
+    let harvestedBotanicals = 0;
+
     setGameState((prev) => {
       const newInventory = { ...prev.inventory };
       if (rewards.spell_energy) newInventory.spell_energy = Math.min(100, (newInventory.spell_energy || 0) + rewards.spell_energy);
       if (rewards.knuts) newInventory.knuts = (newInventory.knuts || 0) + rewards.knuts;
 
       Object.keys(rewards).forEach((k) => {
-        if (k.startsWith('treat_') || k === 'beast_lure') {
+        if (k !== 'spell_energy' && k !== 'knuts') {
           newInventory[k] = (newInventory[k] || 0) + rewards[k];
+          if (k.startsWith('ing_')) {
+            harvestedBotanicals += rewards[k];
+          }
         }
       });
 
@@ -683,11 +837,16 @@ export default function App() {
         inventory: newInventory,
         stats: {
           ...prev.stats,
-          totalWaypointsSpun: prev.stats.totalWaypointsSpun + 1
+          totalWaypointsSpun: prev.stats.totalWaypointsSpun + 1,
+          ingredientsHarvested: (prev.stats.ingredientsHarvested || 0) + harvestedBotanicals
         },
         quests: updatedQuests
       };
     });
+
+    if (harvestedBotanicals > 0) {
+      handleAddAlchemistXP(15);
+    }
 
     setWaypoints((prev) =>
       prev.map((wp) => (wp.id === waypointId ? { ...wp, cooldownUntil: Date.now() + 5 * 60 * 1000 } : wp))
@@ -1067,6 +1226,8 @@ export default function App() {
             buddyInstanceId={gameState.buddyInstanceId}
             cauldrons={gameState.cauldrons || []}
             initialTab={suitcaseInitialTab}
+            alchemistRank={gameState.characterProgression?.alchemistRank || 1}
+            cauldronSlotsCount={gameState.cauldronSlotsCount || 2}
             onSetBuddy={handleSetBuddy}
             onFeedBeast={handleFeedBeast}
             onPetBeast={handlePetBeast}
@@ -1077,6 +1238,9 @@ export default function App() {
             onConsumeItem={handleConsumeItem}
             onAddInventoryItem={handleAddInventoryItem}
             onUpdateCauldrons={handleUpdateCauldrons}
+            onBrewSuccess={handleBrewSuccess}
+            onOpenShop={() => setShowShop(true)}
+            onOpenProgression={() => setShowCharacterProgression(true)}
             onClose={() => {
               setCurrentTab('map');
               setSuitcaseInitialTab('menagerie');
@@ -1102,10 +1266,12 @@ export default function App() {
           disturbance={activeEncounter}
           hero={hero}
           inventory={gameState.inventory}
+          alchemistRank={gameState.characterProgression?.alchemistRank || 1}
           onConsumeItem={handleConsumeItem}
           onCaptureSuccess={handleCaptureSuccess}
           onFlee={handleFlee}
           onClose={handleCloseEncounter}
+          onPotionUsed={handleTacticalPotionUsed}
           onOpenSanctuary={() => {
             setActiveEncounter(null);
             setSuitcaseInitialTab('menagerie');
@@ -1142,6 +1308,10 @@ export default function App() {
             setActiveWaypoint(null);
             setSuitcaseInitialTab('potions');
             setCurrentTab('suitcase');
+          }}
+          onOpenShop={() => {
+            setActiveWaypoint(null);
+            setShowShop(true);
           }}
         />
       )}
@@ -1287,13 +1457,51 @@ export default function App() {
         />
       )}
 
-      {/* Quick Lure & Satchel Bag HUD Buttons */}
+      {showShop && (
+        <ApothecaryShopModal
+          knuts={gameState.inventory.knuts || 0}
+          inventory={gameState.inventory}
+          characterRank={gameState.characterProgression?.alchemistRank || 1}
+          cauldronSlotsCount={gameState.cauldronSlotsCount || 2}
+          onBuyItem={handleShopBuy}
+          onSellItem={handleShopSell}
+          onUpgradeCauldrons={handleUpgradeCauldrons}
+          onOpenPotionsLab={() => {
+            setShowShop(false);
+            setSuitcaseInitialTab('potions');
+            setCurrentTab('suitcase');
+          }}
+          onClose={() => setShowShop(false)}
+        />
+      )}
+
+      {showCharacterProgression && (
+        <CharacterProgressionModal
+          hero={hero}
+          characterProgression={gameState.characterProgression || alchemistService.normalizeProgression()}
+          stats={gameState.stats}
+          onClose={() => setShowCharacterProgression(false)}
+        />
+      )}
+
+      {/* Quick Lure, Satchel Bag, Apothecary Shop & Mastery HUD Buttons */}
       {currentTab === 'map' && (
-        <div style={{ position: 'fixed', left: '16px', top: 'calc(var(--safe-top) + 60px)', zIndex: 400, display: 'flex', gap: '8px' }}>
+        <div
+          style={{
+            position: 'fixed',
+            left: '14px',
+            top: 'calc(var(--safe-top) + 60px)',
+            zIndex: 400,
+            display: 'flex',
+            gap: '6px',
+            flexWrap: 'wrap',
+            maxWidth: 'calc(100vw - 28px)'
+          }}
+        >
           <button
             onClick={handleActivateLure}
             className="btn-magical"
-            style={{ padding: '6px 12px', fontSize: '0.76rem', display: 'flex', alignItems: 'center', gap: '6px' }}
+            style={{ padding: '6px 10px', fontSize: '0.74rem', display: 'flex', alignItems: 'center', gap: '5px' }}
             title="Activate Suitcase Lure"
           >
             <span>🧳</span>
@@ -1303,11 +1511,50 @@ export default function App() {
           <button
             onClick={() => setShowItemBag(true)}
             className="btn-secondary"
-            style={{ padding: '6px 12px', fontSize: '0.76rem', display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(15, 23, 42, 0.85)' }}
+            style={{ padding: '6px 10px', fontSize: '0.74rem', display: 'flex', alignItems: 'center', gap: '5px', background: 'rgba(15, 23, 42, 0.85)' }}
             title="Open Enchanted Satchel"
           >
             <span>🎒</span>
             <span>Bag</span>
+          </button>
+
+          <button
+            onClick={() => setShowShop(true)}
+            className="btn-secondary"
+            style={{
+              padding: '6px 10px',
+              fontSize: '0.74rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px',
+              background: 'rgba(30, 20, 10, 0.88)',
+              borderColor: '#fbbf24',
+              color: '#fef08a',
+              boxShadow: '0 0 10px rgba(251, 191, 36, 0.25)'
+            }}
+            title="Enter Apothecary & Reagents Shop"
+          >
+            <span>⚗️</span>
+            <span>Shop</span>
+          </button>
+
+          <button
+            onClick={() => setShowCharacterProgression(true)}
+            className="btn-secondary"
+            style={{
+              padding: '6px 10px',
+              fontSize: '0.74rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px',
+              background: 'rgba(20, 15, 35, 0.88)',
+              borderColor: '#c084fc',
+              color: '#f5d0fe'
+            }}
+            title="Character Progression & Talents"
+          >
+            <span>⭐</span>
+            <span>Rank {gameState.characterProgression?.alchemistRank || 1}</span>
           </button>
         </div>
       )}

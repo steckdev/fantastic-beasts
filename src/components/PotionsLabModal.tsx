@@ -23,9 +23,13 @@ import { PotionRecipe, CauldronSlot } from '../types';
 interface PotionsLabModalProps {
   inventory: Record<string, number>;
   cauldrons?: CauldronSlot[];
+  alchemistRank?: number;
+  cauldronSlotsCount?: number;
   onConsumeItem: (itemKey: string, amount?: number) => void;
   onAddInventoryItem: (itemKey: string, amount: number) => void;
   onUpdateCauldrons: (cauldrons: CauldronSlot[]) => void;
+  onBrewSuccess?: (isMasterwork: boolean) => void;
+  onOpenShop?: () => void;
   onShowToast?: (
     title: string,
     message: string,
@@ -37,9 +41,13 @@ interface PotionsLabModalProps {
 export default function PotionsLabModal({
   inventory,
   cauldrons = [],
+  alchemistRank = 1,
+  cauldronSlotsCount = 2,
   onConsumeItem,
   onAddInventoryItem,
   onUpdateCauldrons,
+  onBrewSuccess,
+  onOpenShop,
   onShowToast,
   onClose
 }: PotionsLabModalProps) {
@@ -58,22 +66,24 @@ export default function PotionsLabModal({
 
   const cauldronRef = useRef<HTMLDivElement | null>(null);
 
-  // Default cauldrons if empty
-  const currentCauldrons: CauldronSlot[] =
-    cauldrons.length > 0
-      ? cauldrons
-      : [
-          { id: 'cauldron_1', recipeId: null, startedAt: null, finishesAt: null, isReady: false },
-          { id: 'cauldron_2', recipeId: null, startedAt: null, finishesAt: null, isReady: false },
-          {
-            id: 'cauldron_hopping',
-            recipeId: 'potion_wiggenweld',
-            startedAt: Date.now() - 35000,
-            finishesAt: Date.now() - 5000,
-            isHoppingPot: true,
-            isReady: true
-          }
-        ];
+  // Dynamically initialize cauldron slots up to cauldronSlotsCount plus Hopping Pot
+  const regularSlots: CauldronSlot[] = [];
+  const maxSlots = Math.max(2, Math.min(4, cauldronSlotsCount));
+  for (let i = 1; i <= maxSlots; i++) {
+    const existing = cauldrons.find((c) => c.id === `cauldron_${i}`);
+    regularSlots.push(
+      existing || { id: `cauldron_${i}`, recipeId: null, startedAt: null, finishesAt: null, isReady: false }
+    );
+  }
+  const hoppingPot = cauldrons.find((c) => c.isHoppingPot) || {
+    id: 'cauldron_hopping',
+    recipeId: 'potion_wiggenweld',
+    startedAt: Date.now() - 35000,
+    finishesAt: Date.now() - 5000,
+    isHoppingPot: true,
+    isReady: true
+  };
+  const currentCauldrons: CauldronSlot[] = [...regularSlots, hoppingPot];
 
   // Tick background simmering cauldrons
   useEffect(() => {
@@ -214,6 +224,10 @@ export default function PotionsLabModal({
     const yieldCount = isMaster ? 2 : 1;
     onAddInventoryItem(selectedRecipe.id, yieldCount);
 
+    if (onBrewSuccess) {
+      onBrewSuccess(isMaster);
+    }
+
     if (isMaster) {
       sounds.playSparkle();
       sounds.playDrinkPotion();
@@ -226,14 +240,14 @@ export default function PotionsLabModal({
       if (onShowToast) {
         onShowToast(
           'Masterwork Double Brew!',
-          `Flawless alchemical timing! Crafted 2x ${selectedRecipe.name}!`,
+          `Flawless alchemical timing! Crafted 2x ${selectedRecipe.name}! (+60 Alchemist XP)`,
           'success'
         );
       }
     } else {
       sounds.playDrinkPotion();
       if (onShowToast) {
-        onShowToast('Potion Brewed!', `Successfully brewed ${selectedRecipe.name}!`, 'success');
+        onShowToast('Potion Brewed!', `Successfully brewed ${selectedRecipe.name}! (+30 Alchemist XP)`, 'success');
       }
     }
   };
@@ -245,6 +259,11 @@ export default function PotionsLabModal({
     const recipe = POTION_RECIPES.find((r) => r.id === slot.recipeId) || POTION_RECIPES[0];
     onAddInventoryItem(recipe.id, 1);
     sounds.playDrinkPotion();
+
+    if (onBrewSuccess) {
+      onBrewSuccess(false);
+    }
+
     confetti({
       particleCount: 25,
       spread: 45,
@@ -255,7 +274,7 @@ export default function PotionsLabModal({
     if (onShowToast) {
       onShowToast(
         slot.isHoppingPot ? 'Hopping Pot Mystery Brew!' : 'Cauldron Brew Ready!',
-        `Collected ${recipe.name} from the simmering station!`,
+        `Collected ${recipe.name} from the simmering station! (+30 Alchemist XP)`,
         'success'
       );
     }
@@ -264,11 +283,12 @@ export default function PotionsLabModal({
     if (slot.isHoppingPot) {
       // Hopping Pot automatically begins a new random potion
       const randomRecipe = POTION_RECIPES[Math.floor(Math.random() * POTION_RECIPES.length)];
+      const hoppingMult = alchemistRank >= 10 ? 0.5 : 1.0;
       updated[slotIndex] = {
         ...slot,
         recipeId: randomRecipe.id,
         startedAt: Date.now(),
-        finishesAt: Date.now() + randomRecipe.brewTimeSeconds * 1000,
+        finishesAt: Date.now() + Math.round(randomRecipe.brewTimeSeconds * 1000 * hoppingMult),
         isReady: false
       };
     } else {
@@ -307,12 +327,16 @@ export default function PotionsLabModal({
     sounds.playCauldronBubble();
     haptics.light();
 
+    // Rapid Simmering perk (Rank 5) gives 25% faster brew times
+    const timeMult = alchemistRank >= 5 ? 0.75 : 1.0;
+    const durationMs = Math.round(selectedRecipe.brewTimeSeconds * 1000 * timeMult);
+
     const updated = [...currentCauldrons];
     updated[slotIndex] = {
       ...slot,
       recipeId: selectedRecipe.id,
       startedAt: Date.now(),
-      finishesAt: Date.now() + selectedRecipe.brewTimeSeconds * 1000,
+      finishesAt: Date.now() + durationMs,
       isReady: false
     };
     onUpdateCauldrons(updated);
@@ -320,7 +344,7 @@ export default function PotionsLabModal({
     if (onShowToast) {
       onShowToast(
         'Simmering in Cauldron',
-        `${selectedRecipe.name} will finish in ${selectedRecipe.brewTimeSeconds}s!`,
+        `${selectedRecipe.name} will finish in ${Math.round(durationMs / 1000)}s!${alchemistRank >= 5 ? ' (25% Rapid Simmer)' : ''}`,
         'info'
       );
     }
@@ -340,6 +364,7 @@ export default function PotionsLabModal({
       <div
         style={{
           display: 'flex',
+          alignItems: 'center',
           borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
           background: 'rgba(15, 23, 42, 0.75)',
           padding: '6px 12px',
@@ -374,8 +399,30 @@ export default function PotionsLabModal({
           className={activeTab === 'ingredients' ? 'btn-magical' : 'btn-secondary'}
           style={{ flex: 1, padding: '6px 8px', fontSize: '0.74rem', borderRadius: 'var(--radius-full)' }}
         >
-          🌿 Botanical Satchel
+          🌿 Satchel
         </button>
+
+        {onOpenShop && (
+          <button
+            onClick={() => {
+              haptics.light();
+              onOpenShop();
+            }}
+            className="btn-secondary"
+            style={{
+              padding: '6px 10px',
+              fontSize: '0.74rem',
+              borderRadius: 'var(--radius-full)',
+              borderColor: '#fbbf24',
+              color: '#fef08a',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px'
+            }}
+          >
+            <span>🛍️ Shop</span>
+          </button>
+        )}
       </div>
 
       {/* Main Content Area */}
